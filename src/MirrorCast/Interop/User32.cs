@@ -80,10 +80,18 @@ public static class User32
     [DllImport("user32.dll")]
     public static extern bool GetIconInfo(IntPtr hIcon, out ICONINFO piconinfo);
 
+    [DllImport("user32.dll")]
+    public static extern bool DrawIconEx(IntPtr hdc, int xLeft, int yTop, IntPtr hIcon,
+        int cxWidth, int cyWidth, int istepIfAniCur, IntPtr hbrFlickerFreeDraw, int diFlags);
+
     [DllImport("gdi32.dll")]
     public static extern bool DeleteObject(IntPtr hObject);
 
+    [DllImport("gdi32.dll")]
+    public static extern int GetObject(IntPtr hgdiobj, int cbBuffer, ref BITMAP lpvObject);
+
     public const int CURSOR_SHOWING = 0x00000001;
+    public const int DI_NORMAL = 0x0003;
 
     public const uint GW_OWNER = 4;
     public const int GWL_EXSTYLE = -20;

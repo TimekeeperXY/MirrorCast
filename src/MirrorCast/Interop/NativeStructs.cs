@@ -50,6 +50,18 @@ public struct CURSORINFO
 }
 
 [StructLayout(LayoutKind.Sequential)]
+public struct BITMAP
+{
+    public int bmType;
+    public int bmWidth;
+    public int bmHeight;
+    public int bmWidthBytes;
+    public ushort bmPlanes;
+    public ushort bmBitsPixel;
+    public IntPtr bmBits;
+}
+
+[StructLayout(LayoutKind.Sequential)]
 public struct ICONINFO
 {
     public bool fIcon;
