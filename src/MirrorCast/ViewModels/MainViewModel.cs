@@ -74,6 +74,13 @@ public class MainViewModel : ViewModelBase
         set => SetField(ref _hideCursor, value);
     }
 
+    private bool _showSyntheticCursor = true;
+    public bool ShowSyntheticCursor
+    {
+        get => _showSyntheticCursor;
+        set => SetField(ref _showSyntheticCursor, value);
+    }
+
     private bool _startWithWindows;
     public bool StartWithWindows
     {
@@ -155,6 +162,7 @@ public class MainViewModel : ViewModelBase
         ScaleMode = _config.ScaleMode;
         ClientAreaOnly = _config.ClientAreaOnly;
         HideCursor = _config.HideCursor;
+        ShowSyntheticCursor = _config.ShowSyntheticCursor;
         _startWithWindows = StartupService.IsEnabled();
 
         _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
@@ -239,7 +247,8 @@ public class MainViewModel : ViewModelBase
             {
                 ScaleMode = ScaleMode,
                 ClientAreaOnly = ClientAreaOnly,
-                HideCursor = HideCursor
+                HideCursor = HideCursor,
+                ShowSyntheticCursor = ShowSyntheticCursor
             };
 
             _controller.Start(SelectedWindow.Hwnd, SelectedMonitor, options);
@@ -344,6 +353,7 @@ public class MainViewModel : ViewModelBase
         _config.ScaleMode = ScaleMode;
         _config.ClientAreaOnly = ClientAreaOnly;
         _config.HideCursor = HideCursor;
+        _config.ShowSyntheticCursor = ShowSyntheticCursor;
         _config.StartWithWindows = StartWithWindows;
         _configService.Save(_config);
     }

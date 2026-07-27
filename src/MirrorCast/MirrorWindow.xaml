@@ -15,8 +15,11 @@
                    HorizontalAlignment="Center"
                    VerticalAlignment="Center"
                    Visibility="Collapsed"/>
-        <Canvas x:Name="CursorCanvas" IsHitTestVisible="False">
-            <Image x:Name="CursorImage" Visibility="Collapsed" Stretch="Fill"/>
-        </Canvas>
+<!--
+            NOTE: nothing drawn here can appear above the mirrored picture — DWM
+            composites the thumbnail on top of this window's own content. Any overlay
+            (cursor, badges, watermarks) must live in a separate top-level window.
+            See CursorOverlayWindow.
+        -->
     </Grid>
 </Window>

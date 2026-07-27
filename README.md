@@ -51,7 +51,7 @@
 拖动改变源窗口大小时，副屏画面**实时跟随**（33ms 检测），不会出现变形过渡。
 
 **🖱 副屏合成鼠标指针**
-DWM 缩略图本身**不含鼠标指针**（系统限制）。MirrorCast 实时读取真实光标位置与样式，按比例叠加到副屏画面上——观众能看到你的指针在动，箭头 / 手型 / 文本光标都会还原。
+DWM 缩略图本身**不含鼠标指针**（系统限制）。MirrorCast 实时读取真实光标位置与样式，按比例叠加到副屏画面上——观众能看到你的指针在动，箭头 / 手型 / 文本光标都会还原。可在设置里关闭。
 
 **🎨 现代化界面，跟随系统主题**
 Windows 11 原生 **Mica 云母材质**背景（Win10 自动降级为亚克力模糊），浅色 / 深色主题**实时跟随系统**切换，无需重启。
@@ -156,7 +156,9 @@ dotnet run --project src/MirrorCast
 因为画面从头到尾没离开过 GPU、没经过任何截图/编码步骤，所以才能做到近乎零开销和零延迟。
 
 关键实现点：
+- **缩略图绘制在目标窗口内容之上**。这是最容易踩的坑：DWM 是在目标窗口自身的渲染结果**上层**合成缩略图的，所以你在镜像窗口里画的任何东西（光标、水印、角标）都会被镜像画面完全盖住，永远看不见。若需要叠加内容，必须放到**另一个独立的顶层窗口**里（本项目的 `CursorOverlayWindow` 就是为此存在）
 - **`DwmUpdateThumbnailProperties`** 设置目标矩形，三种缩放模式就是在算这个矩形。**注意 DWM 会把源画面拉伸填满目标矩形而不是裁剪**，所以矩形必须严格保持源画面宽高比，否则画面变形
+- **源窗口最小化时缩略图会继续显示冻结的最后一帧**，需要主动把 `fVisible` 设为 false 才能露出下层的提示文字
 - **Per-Monitor DPI Aware V2**（在 `app.manifest` 声明），保证混合 DPI 多屏场景下坐标计算正确
 - **`DwmSetWindowAttribute` + `DwmExtendFrameIntoClientArea`** 实现 Mica 背景；WPF 还需额外把 `HwndTarget.BackgroundColor` 设为透明，否则底层会填充不透明黑色
 
@@ -169,8 +171,9 @@ src/MirrorCast/
 ├── Models/           # 数据模型
 ├── ViewModels/       # MVVM 视图模型
 ├── Themes/           # 浅色 / 深色配色 + 控件样式
-├── MainWindow.xaml   # 主控制面板
-└── MirrorWindow.xaml # 副屏全屏镜像窗口
+├── MainWindow.xaml         # 主控制面板
+├── MirrorWindow.xaml       # 副屏全屏镜像窗口
+└── CursorOverlayWindow.xaml # 指针叠加层（必须独立于镜像窗口，见上文）
 ```
 
 ---

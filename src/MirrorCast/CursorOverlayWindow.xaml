@@ -1,0 +1,15 @@
+<Window x:Class="MirrorCast.CursorOverlayWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="MirrorCastCursor"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        Topmost="True"
+        ShowActivated="False"
+        WindowStartupLocation="Manual"
+        Left="-32000" Top="-32000" Width="32" Height="32">
+    <Image x:Name="CursorImage" Stretch="Fill" SnapsToDevicePixels="True"/>
+</Window>

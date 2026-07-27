@@ -10,6 +10,7 @@ public class ThumbnailController
 {
     private IntPtr _thumbnail = IntPtr.Zero;
     private MirrorWindow? _mirrorWindow;
+    private CursorOverlayWindow? _cursorWindow;
     private IntPtr _destHwnd;
     private DispatcherTimer? _timer;
     private DispatcherTimer? _cursorTimer;
@@ -64,6 +65,12 @@ public class ThumbnailController
         }
 
         ApplyProperties();
+
+        // Must be a separate top-level window — DWM draws the thumbnail over the
+        // mirror window's own content, so an in-window overlay is never visible.
+        _cursorWindow = new CursorOverlayWindow();
+        _cursorWindow.Show();
+        _cursorWindow.HideCursor();
 
         _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
         _timer.Tick += (_, _) => Tick();
@@ -142,6 +149,7 @@ public class ThumbnailController
     private void ResyncIfSourceSizeChanged()
     {
         if (_thumbnail == IntPtr.Zero) return;
+        if (User32.IsIconic(_sourceHwnd)) return; // handled by the slow tick
         if (DwmApi.DwmQueryThumbnailSourceSize(_thumbnail, out var size) != 0) return;
         if (size.cx == _lastSourceSize.cx && size.cy == _lastSourceSize.cy) return;
 
@@ -151,6 +159,21 @@ public class ThumbnailController
     private void ApplyProperties()
     {
         if (_thumbnail == IntPtr.Zero || _targetMonitor == null) return;
+
+        // While the source is minimized the thumbnail keeps painting a frozen last frame,
+        // and it covers this window's own content — so the "source minimized" notice would
+        // never be seen. Hide the thumbnail so that notice shows instead of a stale image.
+        // Checked before the size guard because a minimized source can report a zero size.
+        if (User32.IsIconic(_sourceHwnd))
+        {
+            var hidden = new DWM_THUMBNAIL_PROPERTIES
+            {
+                dwFlags = DwmApi.DWM_TNP_VISIBLE,
+                fVisible = false
+            };
+            DwmApi.DwmUpdateThumbnailProperties(_thumbnail, ref hidden);
+            return;
+        }
 
         DwmApi.DwmQueryThumbnailSourceSize(_thumbnail, out var srcSize);
         if (srcSize.cx <= 0 || srcSize.cy <= 0) return;
@@ -220,36 +243,45 @@ public class ThumbnailController
 
     private void UpdateCursorOverlay()
     {
-        if (_mirrorWindow == null || _targetMonitor == null) return;
+        if (_cursorWindow == null || _targetMonitor == null) return;
 
-        if (!User32.IsWindow(_sourceHwnd) ||
+        if (!_options.ShowSyntheticCursor ||
+            !User32.IsWindow(_sourceHwnd) ||
+            User32.IsIconic(_sourceHwnd) ||
             !TryGetSourceScreenRect(_sourceHwnd, _options.ClientAreaOnly, out var sourceRect) ||
             sourceRect.Width <= 0 || sourceRect.Height <= 0 ||
             !User32.GetCursorPos(out var cursorPos) ||
-            cursorPos.X < sourceRect.Left || cursorPos.X > sourceRect.Right ||
-            cursorPos.Y < sourceRect.Top || cursorPos.Y > sourceRect.Bottom ||
+            cursorPos.X < sourceRect.Left || cursorPos.X >= sourceRect.Right ||
+            cursorPos.Y < sourceRect.Top || cursorPos.Y >= sourceRect.Bottom ||
             !CursorHelper.TryGetCurrentCursor(out var bitmap, out var hotspotX, out var hotspotY, out _) ||
             bitmap == null)
         {
-            _mirrorWindow.HideCursorOverlay();
+            _cursorWindow.HideCursor();
             return;
         }
 
+        // Map cursor position from the source window onto the mirrored rectangle.
         double relX = (double)(cursorPos.X - sourceRect.Left) / sourceRect.Width;
         double relY = (double)(cursorPos.Y - sourceRect.Top) / sourceRect.Height;
 
-        double destPxX = _lastDestRect.Left + relX * _lastDestRect.Width;
-        double destPxY = _lastDestRect.Top + relY * _lastDestRect.Height;
+        // _lastDestRect is relative to the mirror window's client area, which is
+        // positioned at the monitor's physical origin — so add it back for screen coords.
+        double screenX = _targetMonitor.Bounds.Left + _lastDestRect.Left + relX * _lastDestRect.Width;
+        double screenY = _targetMonitor.Bounds.Top + _lastDestRect.Top + relY * _lastDestRect.Height;
 
-        var (dpiX, dpiY) = _mirrorWindow.GetDpiScale();
-        if (dpiX <= 0 || dpiY <= 0) return;
+        // Scale the cursor the same way the picture is scaled, but keep it from
+        // becoming unreadably small when the source is heavily downscaled.
+        double scale = _lastDestRect.Width > 0 && sourceRect.Width > 0
+            ? (double)_lastDestRect.Width / sourceRect.Width
+            : 1.0;
+        scale = Math.Clamp(scale, 0.75, 3.0);
 
-        double left = destPxX / dpiX - hotspotX / dpiX;
-        double top = destPxY / dpiY - hotspotY / dpiY;
-        double width = bitmap.PixelWidth / dpiX;
-        double height = bitmap.PixelHeight / dpiY;
+        int w = Math.Max(1, (int)Math.Round(bitmap.PixelWidth * scale));
+        int h = Math.Max(1, (int)Math.Round(bitmap.PixelHeight * scale));
+        int x = (int)Math.Round(screenX - hotspotX * scale);
+        int y = (int)Math.Round(screenY - hotspotY * scale);
 
-        _mirrorWindow.ShowCursorOverlay(bitmap, left, top, width, height);
+        _cursorWindow.ShowCursor(bitmap, x, y, w, h, _destHwnd);
     }
 
     private static bool TryGetSourceScreenRect(IntPtr hwnd, bool clientAreaOnly, out RECT rect)
@@ -296,8 +328,11 @@ public class ThumbnailController
             _thumbnail = IntPtr.Zero;
         }
 
+        _cursorWindow?.Close();
+        _cursorWindow = null;
         _mirrorWindow?.Close();
         _mirrorWindow = null;
+        _destHwnd = IntPtr.Zero;
         _targetMonitor = null;
         _wasMinimized = false;
     }

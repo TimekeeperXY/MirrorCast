@@ -109,7 +109,10 @@
                     </Grid>
 
                     <CheckBox Content="只显示窗口内容（不含标题栏）" IsChecked="{Binding ClientAreaOnly}" Margin="0,5"/>
-                    <CheckBox Content="副屏隐藏鼠标光标" IsChecked="{Binding HideCursor}" Margin="0,5"/>
+                    <CheckBox Content="在副屏显示鼠标指针" IsChecked="{Binding ShowSyntheticCursor}" Margin="0,5"
+                              ToolTip="镜像画面本身不含指针，勾选后会把你的指针位置叠加显示出来"/>
+                    <CheckBox Content="副屏隐藏真实光标" IsChecked="{Binding HideCursor}" Margin="0,5"
+                              ToolTip="当你把鼠标移到副屏上时，隐藏真实的鼠标光标"/>
                     <CheckBox Content="开机自启动" IsChecked="{Binding StartWithWindows}" Margin="0,5,0,0"/>
                 </StackPanel>
             </Border>

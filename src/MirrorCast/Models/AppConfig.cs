@@ -8,6 +8,7 @@ public class AppConfig
     public ScaleMode ScaleMode { get; set; } = ScaleMode.Fit;
     public bool ClientAreaOnly { get; set; } = true;
     public bool HideCursor { get; set; } = true;
+    public bool ShowSyntheticCursor { get; set; } = true;
     public bool StartWithWindows { get; set; }
     public string ToggleHotkey { get; set; } = "Ctrl+Alt+M";
     public string StopHotkey { get; set; } = "Ctrl+Alt+Shift+M";

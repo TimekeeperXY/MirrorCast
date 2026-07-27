@@ -1,8 +1,6 @@
 using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
 
 namespace MirrorCast;
 
@@ -39,21 +37,6 @@ public partial class MirrorWindow : Window
     public void SetMinimizedOverlay(bool visible)
     {
         OverlayText.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
-    }
-
-    public void ShowCursorOverlay(BitmapSource bitmap, double left, double top, double width, double height)
-    {
-        CursorImage.Source = bitmap;
-        Canvas.SetLeft(CursorImage, left);
-        Canvas.SetTop(CursorImage, top);
-        CursorImage.Width = width;
-        CursorImage.Height = height;
-        CursorImage.Visibility = Visibility.Visible;
-    }
-
-    public void HideCursorOverlay()
-    {
-        CursorImage.Visibility = Visibility.Collapsed;
     }
 
     public (double X, double Y) GetDpiScale()
