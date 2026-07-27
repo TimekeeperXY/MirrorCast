@@ -1,0 +1,186 @@
+<Window x:Class="MirrorCast.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:MirrorCast"
+        xmlns:models="clr-namespace:MirrorCast.Models"
+        mc:Ignorable="d"
+        Title="MirrorCast · 窗口镜像 — created by @晓阳的百宝箱" Height="700" Width="440"
+        MinHeight="500" MinWidth="380"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResize"
+        Background="Transparent"
+        Foreground="{DynamicResource AppTextPrimaryBrush}"
+        FontFamily="Segoe UI"
+        Closing="Window_Closing">
+    <Window.Resources>
+        <local:BoolToVisibilityConverter x:Key="BoolToVis"/>
+        <local:InverseBoolToVisibilityConverter x:Key="InverseBoolToVis"/>
+        <local:ScaleModeToLabelConverter x:Key="ScaleModeToLabel"/>
+
+        <Style x:Key="CardBorderStyle" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource AppCardBackgroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AppCardBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="12"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Background="Transparent">
+
+        <!-- Idle / selection panel -->
+        <ScrollViewer Visibility="{Binding IsMirroring, Converter={StaticResource InverseBoolToVis}}"
+                      Background="Transparent"
+                      VerticalScrollBarVisibility="Auto" Padding="18">
+        <StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                <TextBlock Text="MirrorCast" FontSize="21" FontWeight="Bold"/>
+                <TextBlock Text="窗口镜像" FontSize="13" Margin="8,0,0,0" VerticalAlignment="Bottom"
+                           Foreground="{DynamicResource AppTextSecondaryBrush}" Padding="0,0,0,3"/>
+            </StackPanel>
+            <TextBlock Text="created by @晓阳的百宝箱" FontSize="11"
+                       Foreground="{DynamicResource AppTextSecondaryBrush}" Margin="0,0,0,16" Opacity="0.85"/>
+
+            <Grid Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox Grid.Column="0"
+                         Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="搜索窗口标题或进程名"/>
+                <Button Grid.Column="1" Content="刷新" Margin="8,0,0,0"
+                        Command="{Binding RefreshCommand}"/>
+            </Grid>
+
+            <Border Style="{StaticResource CardBorderStyle}" Height="210" Margin="0,0,0,14">
+                <ListBox ItemsSource="{Binding WindowsView}" SelectedItem="{Binding SelectedWindow}"
+                         IsSynchronizedWithCurrentItem="False"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate DataType="{x:Type models:WindowInfo}">
+                            <StackPanel Orientation="Horizontal">
+                                <Image Source="{Binding Icon}" Width="16" Height="16" Margin="0,0,8,0"/>
+                                <TextBlock Text="{Binding DisplayTitle}" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding ProcessName, StringFormat=' ({0})'}"
+                                           Foreground="{DynamicResource AppTextSecondaryBrush}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Border>
+
+            <TextBlock Text="目标显示器" FontWeight="SemiBold" FontSize="12" Margin="2,0,0,6"
+                       Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+            <Border Style="{StaticResource CardBorderStyle}" Height="68" Margin="0,0,0,6">
+                <ListBox ItemsSource="{Binding Monitors}" SelectedItem="{Binding SelectedMonitor}"
+                         IsSynchronizedWithCurrentItem="False">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate DataType="{x:Type models:MonitorInfo}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding DisplayName}" Margin="0,0,8,0"/>
+                                <TextBlock Text="{Binding Resolution}" Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Border>
+
+            <TextBlock Text="仅检测到一个显示器，请连接副屏后重试" Foreground="{DynamicResource AppDangerBrush}" Margin="2,0,0,10"
+                       FontSize="12" TextWrapping="Wrap"
+                       Visibility="{Binding CanStart, Converter={StaticResource InverseBoolToVis}}"/>
+
+            <Border Style="{StaticResource CardBorderStyle}" Padding="14" Margin="0,4,0,16">
+                <StackPanel>
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="显示模式" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <ComboBox Grid.Column="1" ItemsSource="{Binding ScaleModes}" SelectedItem="{Binding ScaleMode}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Converter={StaticResource ScaleModeToLabel}}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </Grid>
+
+                    <CheckBox Content="只显示窗口内容（不含标题栏）" IsChecked="{Binding ClientAreaOnly}" Margin="0,5"/>
+                    <CheckBox Content="副屏隐藏鼠标光标" IsChecked="{Binding HideCursor}" Margin="0,5"/>
+                    <CheckBox Content="开机自启动" IsChecked="{Binding StartWithWindows}" Margin="0,5,0,0"/>
+                </StackPanel>
+            </Border>
+
+            <Button Content="开始镜像  (Ctrl+Alt+M)" Height="42" Style="{StaticResource PrimaryButtonStyle}"
+                    Command="{Binding StartCommand}"/>
+        </StackPanel>
+        </ScrollViewer>
+
+        <!-- Mirroring status panel -->
+        <StackPanel Visibility="{Binding ShowMirroringStatus, Converter={StaticResource BoolToVis}}"
+                    VerticalAlignment="Center" Margin="24">
+            <Border Style="{StaticResource CardBorderStyle}" Padding="24">
+                <StackPanel>
+                    <TextBlock Text="🎯 正在镜像" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,20"/>
+                    <TextBlock Text="{Binding SelectedWindow.DisplayTitle}" FontSize="14" HorizontalAlignment="Center" TextWrapping="Wrap"/>
+                    <TextBlock Text="↓" FontSize="18" HorizontalAlignment="Center" Margin="0,6"
+                               Foreground="{DynamicResource AppTextSecondaryBrush}"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,26">
+                        <TextBlock Text="{Binding SelectedMonitor.DisplayName}"/>
+                        <TextBlock Text=" ("/>
+                        <TextBlock Text="{Binding SelectedMonitor.Resolution}"/>
+                        <TextBlock Text=")"/>
+                    </StackPanel>
+
+                    <Button Content="停止镜像  (Ctrl+Alt+M)" Height="42" Margin="0,0,0,10"
+                            Style="{StaticResource PrimaryButtonStyle}"
+                            Command="{Binding StopCommand}"/>
+                    <Button Content="更换镜像窗口" Height="34"
+                            Command="{Binding OpenSwitchWindowCommand}"/>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <!-- Quick window-switch panel (mirroring stays live while picking) -->
+        <DockPanel Visibility="{Binding ShowSwitchPanel, Converter={StaticResource BoolToVis}}"
+                   Margin="18">
+            <TextBlock DockPanel.Dock="Top" Text="选择要切换到的窗口" FontSize="16" FontWeight="Bold" Margin="2,0,0,12"/>
+
+            <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox Grid.Column="0"
+                         Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="搜索窗口标题或进程名"/>
+                <Button Grid.Column="1" Content="刷新" Margin="8,0,0,0"
+                        Command="{Binding RefreshCommand}"/>
+            </Grid>
+
+            <Button DockPanel.Dock="Bottom" Content="取消" Height="34" Margin="0,10,0,0"
+                    Command="{Binding CancelSwitchWindowCommand}"/>
+
+            <Border Style="{StaticResource CardBorderStyle}">
+                <ListBox x:Name="SwitchListBox" ItemsSource="{Binding SwitchWindowsView}"
+                         IsSynchronizedWithCurrentItem="False"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         SelectionChanged="SwitchListBox_SelectionChanged">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate DataType="{x:Type models:WindowInfo}">
+                            <StackPanel Orientation="Horizontal">
+                                <Image Source="{Binding Icon}" Width="16" Height="16" Margin="0,0,8,0"/>
+                                <TextBlock Text="{Binding DisplayTitle}" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding ProcessName, StringFormat=' ({0})'}"
+                                           Foreground="{DynamicResource AppTextSecondaryBrush}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Border>
+        </DockPanel>
+    </Grid>
+</Window>

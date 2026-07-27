@@ -1,0 +1,27 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <SolidColorBrush x:Key="AppTextPrimaryBrush" Color="#1A1A1E"/>
+    <SolidColorBrush x:Key="AppTextSecondaryBrush" Color="#6E6E76"/>
+
+    <SolidColorBrush x:Key="AppCardBackgroundBrush" Color="#B3FFFFFF"/>
+    <SolidColorBrush x:Key="AppCardBorderBrush" Color="#26000000"/>
+
+    <SolidColorBrush x:Key="AppAccentBrush" Color="#5B6EF5"/>
+    <SolidColorBrush x:Key="AppAccentHoverBrush" Color="#4C5EE0"/>
+    <SolidColorBrush x:Key="AppAccentPressedBrush" Color="#3E4ECC"/>
+    <SolidColorBrush x:Key="AppAccentForegroundBrush" Color="#FFFFFF"/>
+
+    <SolidColorBrush x:Key="AppButtonSecondaryBackgroundBrush" Color="#14000000"/>
+    <SolidColorBrush x:Key="AppButtonSecondaryHoverBrush" Color="#1F000000"/>
+    <SolidColorBrush x:Key="AppButtonSecondaryPressedBrush" Color="#29000000"/>
+
+    <SolidColorBrush x:Key="AppInputBackgroundBrush" Color="#99FFFFFF"/>
+    <SolidColorBrush x:Key="AppInputBorderBrush" Color="#33000000"/>
+
+    <SolidColorBrush x:Key="AppDangerBrush" Color="#D93025"/>
+    <SolidColorBrush x:Key="AppSelectionBrush" Color="#335B6EF5"/>
+    <SolidColorBrush x:Key="AppHoverOverlayBrush" Color="#0F000000"/>
+    <SolidColorBrush x:Key="AppScrollThumbBrush" Color="#40000000"/>
+
+</ResourceDictionary>

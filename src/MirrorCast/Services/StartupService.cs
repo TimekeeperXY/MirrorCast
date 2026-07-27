@@ -1,0 +1,32 @@
+using Microsoft.Win32;
+
+namespace MirrorCast.Services;
+
+public static class StartupService
+{
+    private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
+    private const string ValueName = "MirrorCast";
+
+    public static bool IsEnabled()
+    {
+        using var key = Registry.CurrentUser.OpenSubKey(RunKey, false);
+        return key?.GetValue(ValueName) != null;
+    }
+
+    public static void SetEnabled(bool enabled)
+    {
+        using var key = Registry.CurrentUser.OpenSubKey(RunKey, true)
+            ?? Registry.CurrentUser.CreateSubKey(RunKey);
+
+        if (enabled)
+        {
+            var exePath = Environment.ProcessPath;
+            if (!string.IsNullOrEmpty(exePath))
+                key.SetValue(ValueName, $"\"{exePath}\"");
+        }
+        else
+        {
+            key.DeleteValue(ValueName, false);
+        }
+    }
+}
