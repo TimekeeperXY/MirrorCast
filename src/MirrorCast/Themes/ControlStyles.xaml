@@ -212,7 +212,7 @@
                         </Grid>
                         <Popup x:Name="Popup" IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom"
                                AllowsTransparency="True" PopupAnimation="Fade" Focusable="False">
-                            <Border Background="{DynamicResource AppCardBackgroundBrush}" BorderBrush="{DynamicResource AppCardBorderBrush}"
+                            <Border Background="{DynamicResource AppFlyoutBackgroundBrush}" BorderBrush="{DynamicResource AppFlyoutBorderBrush}"
                                     BorderThickness="1" CornerRadius="8" Margin="0,4,0,0"
                                     MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}">
                                 <Border.Effect>

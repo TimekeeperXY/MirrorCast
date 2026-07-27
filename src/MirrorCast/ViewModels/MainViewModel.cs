@@ -81,6 +81,76 @@ public class MainViewModel : ViewModelBase
         set => SetField(ref _showSyntheticCursor, value);
     }
 
+    private string _toggleHotkey = "Ctrl+Alt+M";
+    public string ToggleHotkey
+    {
+        get => _toggleHotkey;
+        set
+        {
+            if (SetField(ref _toggleHotkey, value))
+            {
+                OnPropertyChanged(nameof(HotkeyDisplay));
+                OnPropertyChanged(nameof(StartButtonText));
+                OnPropertyChanged(nameof(StopButtonText));
+            }
+        }
+    }
+
+    private bool _isCapturingHotkey;
+    public bool IsCapturingHotkey
+    {
+        get => _isCapturingHotkey;
+        set
+        {
+            if (SetField(ref _isCapturingHotkey, value))
+                OnPropertyChanged(nameof(HotkeyDisplay));
+        }
+    }
+
+    public string HotkeyDisplay => IsCapturingHotkey ? "请按下新的快捷键…" : ToggleHotkey;
+    public string StartButtonText => $"开始镜像  ({ToggleHotkey})";
+    public string StopButtonText => $"停止镜像  ({ToggleHotkey})";
+
+    /// <summary>Raised when the shortcut changed and needs re-registering with Windows.</summary>
+    public event Func<string, bool>? HotkeyChangeRequested;
+
+    private bool _isOnboardingVisible;
+    public bool IsOnboardingVisible
+    {
+        get => _isOnboardingVisible;
+        set => SetField(ref _isOnboardingVisible, value);
+    }
+
+    /// <summary>True only until the walkthrough has been completed or skipped once.</summary>
+    public bool ShouldShowOnboarding => !_config.HasSeenOnboarding;
+
+    public void CompleteOnboarding()
+    {
+        IsOnboardingVisible = false;
+        _config.HasSeenOnboarding = true;
+        SaveConfig();
+    }
+
+    public void BeginCaptureHotkey() => IsCapturingHotkey = true;
+    public void CancelCaptureHotkey() => IsCapturingHotkey = false;
+
+    /// <summary>Applies a newly captured combo, keeping the old one if Windows refuses it.</summary>
+    public void ApplyCapturedHotkey(string hotkey)
+    {
+        IsCapturingHotkey = false;
+        if (hotkey == ToggleHotkey) return;
+
+        if (HotkeyChangeRequested?.Invoke(hotkey) == true)
+        {
+            ToggleHotkey = hotkey;
+            SaveConfig();
+        }
+        else
+        {
+            Notify?.Invoke($"快捷键 {hotkey} 无法注册，可能已被其他程序占用，已保留原设置。");
+        }
+    }
+
     private bool _startWithWindows;
     public bool StartWithWindows
     {
@@ -163,6 +233,8 @@ public class MainViewModel : ViewModelBase
         ClientAreaOnly = _config.ClientAreaOnly;
         HideCursor = _config.HideCursor;
         ShowSyntheticCursor = _config.ShowSyntheticCursor;
+        if (!string.IsNullOrWhiteSpace(_config.ToggleHotkey))
+            ToggleHotkey = _config.ToggleHotkey;
         _startWithWindows = StartupService.IsEnabled();
 
         _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
@@ -354,6 +426,7 @@ public class MainViewModel : ViewModelBase
         _config.ClientAreaOnly = ClientAreaOnly;
         _config.HideCursor = HideCursor;
         _config.ShowSyntheticCursor = ShowSyntheticCursor;
+        _config.ToggleHotkey = ToggleHotkey;
         _config.StartWithWindows = StartWithWindows;
         _configService.Save(_config);
     }

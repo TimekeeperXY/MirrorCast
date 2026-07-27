@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Interop;
 using MirrorCast.Interop;
 
@@ -44,6 +45,51 @@ public class HotkeyService : IDisposable
             handled = true;
         }
         return IntPtr.Zero;
+    }
+
+    /// <summary>
+    /// True when the combo can actually be claimed right now. Registers it briefly and
+    /// releases it again, so the caller can warn about clashes with other apps
+    /// (RegisterHotKey fails outright if something else already owns the combo).
+    /// </summary>
+    public bool IsAvailable(string hotkeyText)
+    {
+        if (!TryParse(hotkeyText, out uint modifiers, out uint vk)) return false;
+
+        int probeId = 0x0BFF;
+        if (!User32.RegisterHotKey(_hwnd, probeId, modifiers, vk)) return false;
+
+        User32.UnregisterHotKey(_hwnd, probeId);
+        return true;
+    }
+
+    /// <summary>Formats a WPF key + modifier combo the way <see cref="TryParse"/> reads it.</summary>
+    public static string? Format(ModifierKeys modifiers, Key key)
+    {
+        if (key is Key.LeftCtrl or Key.RightCtrl or Key.LeftAlt or Key.RightAlt
+            or Key.LeftShift or Key.RightShift or Key.LWin or Key.RWin
+            or Key.System or Key.None)
+        {
+            return null; // modifier on its own is not a shortcut
+        }
+
+        // A bare key would swallow normal typing everywhere, so require a modifier.
+        if (modifiers == ModifierKeys.None) return null;
+
+        var parts = new List<string>();
+        if (modifiers.HasFlag(ModifierKeys.Control)) parts.Add("Ctrl");
+        if (modifiers.HasFlag(ModifierKeys.Alt)) parts.Add("Alt");
+        if (modifiers.HasFlag(ModifierKeys.Shift)) parts.Add("Shift");
+        if (modifiers.HasFlag(ModifierKeys.Windows)) parts.Add("Win");
+
+        parts.Add(key switch
+        {
+            >= Key.D0 and <= Key.D9 => ((char)('0' + (key - Key.D0))).ToString(),
+            >= Key.NumPad0 and <= Key.NumPad9 => "NumPad" + (key - Key.NumPad0),
+            _ => key.ToString()
+        });
+
+        return string.Join("+", parts);
     }
 
     public static bool TryParse(string text, out uint modifiers, out uint vk)

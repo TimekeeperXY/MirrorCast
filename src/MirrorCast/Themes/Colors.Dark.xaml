@@ -7,6 +7,11 @@
     <SolidColorBrush x:Key="AppCardBackgroundBrush" Color="#17FFFFFF"/>
     <SolidColorBrush x:Key="AppCardBorderBrush" Color="#26FFFFFF"/>
 
+    <!-- Menus and drop-downs must be fully opaque: they float over other controls,
+         and a translucent fill lets the content underneath bleed through the list. -->
+    <SolidColorBrush x:Key="AppFlyoutBackgroundBrush" Color="#FF32323A"/>
+    <SolidColorBrush x:Key="AppFlyoutBorderBrush" Color="#3DFFFFFF"/>
+
     <SolidColorBrush x:Key="AppAccentBrush" Color="#7C93FF"/>
     <SolidColorBrush x:Key="AppAccentHoverBrush" Color="#90A4FF"/>
     <SolidColorBrush x:Key="AppAccentPressedBrush" Color="#6980E6"/>

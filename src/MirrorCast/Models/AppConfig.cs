@@ -10,6 +10,9 @@ public class AppConfig
     public bool HideCursor { get; set; } = true;
     public bool ShowSyntheticCursor { get; set; } = true;
     public bool StartWithWindows { get; set; }
+
+    /// <summary>Set once the first-run walkthrough has been shown, so it never reappears.</summary>
+    public bool HasSeenOnboarding { get; set; }
     public string ToggleHotkey { get; set; } = "Ctrl+Alt+M";
     public string StopHotkey { get; set; } = "Ctrl+Alt+Shift+M";
     public List<RecentWindowEntry> RecentWindows { get; set; } = new();

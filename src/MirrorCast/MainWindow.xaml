@@ -6,13 +6,14 @@
         xmlns:local="clr-namespace:MirrorCast"
         xmlns:models="clr-namespace:MirrorCast.Models"
         mc:Ignorable="d"
-        Title="MirrorCast · 窗口镜像 — created by @晓阳的百宝箱" Height="700" Width="440"
+        Title="MirrorCast · 窗口镜像 — created by @晓阳的百宝箱" Height="812" Width="440"
         MinHeight="500" MinWidth="380"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResize"
         Background="Transparent"
         Foreground="{DynamicResource AppTextPrimaryBrush}"
         FontFamily="Segoe UI"
+        PreviewKeyDown="Window_PreviewKeyDown"
         Closing="Window_Closing">
     <Window.Resources>
         <local:BoolToVisibilityConverter x:Key="BoolToVis"/>
@@ -54,7 +55,7 @@
                         Command="{Binding RefreshCommand}"/>
             </Grid>
 
-            <Border Style="{StaticResource CardBorderStyle}" Height="210" Margin="0,0,0,14">
+            <Border x:Name="WindowListCard" Style="{StaticResource CardBorderStyle}" Height="210" Margin="0,0,0,14">
                 <ListBox ItemsSource="{Binding WindowsView}" SelectedItem="{Binding SelectedWindow}"
                          IsSynchronizedWithCurrentItem="False"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
@@ -73,7 +74,7 @@
 
             <TextBlock Text="目标显示器" FontWeight="SemiBold" FontSize="12" Margin="2,0,0,6"
                        Foreground="{DynamicResource AppTextSecondaryBrush}"/>
-            <Border Style="{StaticResource CardBorderStyle}" Height="68" Margin="0,0,0,6">
+            <Border x:Name="MonitorListCard" Style="{StaticResource CardBorderStyle}" Height="68" Margin="0,0,0,6">
                 <ListBox ItemsSource="{Binding Monitors}" SelectedItem="{Binding SelectedMonitor}"
                          IsSynchronizedWithCurrentItem="False">
                     <ListBox.ItemTemplate>
@@ -114,10 +115,25 @@
                     <CheckBox Content="副屏隐藏真实光标" IsChecked="{Binding HideCursor}" Margin="0,5"
                               ToolTip="当你把鼠标移到副屏上时，隐藏真实的鼠标光标"/>
                     <CheckBox Content="开机自启动" IsChecked="{Binding StartWithWindows}" Margin="0,5,0,0"/>
+
+                    <Border Height="1" Background="{DynamicResource AppCardBorderBrush}" Margin="0,12,0,10"/>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="快捷键" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <Button x:Name="HotkeyButton" Grid.Column="1" Height="32"
+                                Content="{Binding HotkeyDisplay}"
+                                Click="HotkeyButton_Click"
+                                ToolTip="点击后按下新的组合键，需包含 Ctrl / Alt / Shift 之一；按 Esc 取消"/>
+                    </Grid>
                 </StackPanel>
             </Border>
 
-            <Button Content="开始镜像  (Ctrl+Alt+M)" Height="42" Style="{StaticResource PrimaryButtonStyle}"
+            <Button x:Name="StartButton" Content="{Binding StartButtonText}" Height="42"
+                    Style="{StaticResource PrimaryButtonStyle}"
                     Command="{Binding StartCommand}"/>
         </StackPanel>
         </ScrollViewer>
@@ -138,7 +154,7 @@
                         <TextBlock Text=")"/>
                     </StackPanel>
 
-                    <Button Content="停止镜像  (Ctrl+Alt+M)" Height="42" Margin="0,0,0,10"
+                    <Button Content="{Binding StopButtonText}" Height="42" Margin="0,0,0,10"
                             Style="{StaticResource PrimaryButtonStyle}"
                             Command="{Binding StopCommand}"/>
                     <Button Content="更换镜像窗口" Height="34"
@@ -185,5 +201,47 @@
                 </ListBox>
             </Border>
         </DockPanel>
+
+        <!-- First-run walkthrough. Sits above everything; shown once, then never again. -->
+        <Grid x:Name="OnboardingOverlay" Visibility="Collapsed" Panel.ZIndex="100">
+            <Rectangle Fill="#B0000000"/>
+
+            <!-- Ring drawn over whichever control the current step is talking about -->
+            <Border x:Name="OnboardingHighlight"
+                    HorizontalAlignment="Left" VerticalAlignment="Top"
+                    BorderBrush="{DynamicResource AppAccentBrush}" BorderThickness="2.5"
+                    CornerRadius="12" Background="#18FFFFFF" IsHitTestVisible="False">
+                <Border.Effect>
+                    <BlurEffect Radius="0"/>
+                </Border.Effect>
+            </Border>
+
+            <Border x:Name="OnboardingCard"
+                    HorizontalAlignment="Left" VerticalAlignment="Top"
+                    Background="{DynamicResource AppFlyoutBackgroundBrush}"
+                    BorderBrush="{DynamicResource AppFlyoutBorderBrush}" BorderThickness="1"
+                    CornerRadius="12" Padding="18,16" MaxWidth="330">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="24" ShadowDepth="3" Opacity="0.45" Color="Black"/>
+                </Border.Effect>
+                <StackPanel>
+                    <TextBlock x:Name="OnboardingStepLabel" Text="第 1 / 4 步" FontSize="11"
+                               Foreground="{DynamicResource AppTextSecondaryBrush}" Margin="0,0,0,6"/>
+                    <TextBlock x:Name="OnboardingTitle" Text="" FontSize="16" FontWeight="Bold"
+                               Foreground="{DynamicResource AppTextPrimaryBrush}" Margin="0,0,0,8"
+                               TextWrapping="Wrap"/>
+                    <TextBlock x:Name="OnboardingBody" Text="" FontSize="13"
+                               Foreground="{DynamicResource AppTextPrimaryBrush}" Opacity="0.85"
+                               TextWrapping="Wrap" Margin="0,0,0,16" LineHeight="20"/>
+                    <Grid>
+                        <Button Content="跳过" HorizontalAlignment="Left" Padding="14,6"
+                                Click="OnboardingSkip_Click"/>
+                        <Button x:Name="OnboardingNext" Content="下一步" HorizontalAlignment="Right"
+                                Padding="18,6" Style="{StaticResource PrimaryButtonStyle}"
+                                Click="OnboardingNext_Click"/>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Grid>
     </Grid>
 </Window>
