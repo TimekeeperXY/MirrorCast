@@ -1,0 +1,26 @@
+<Window x:Class="MirrorCast.ClickRippleWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="MirrorCastClickRipple"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        Topmost="True"
+        ShowActivated="False"
+        WindowStartupLocation="Manual"
+        Left="-32000" Top="-32000" Width="10" Height="10">
+    <Grid>
+        <Ellipse x:Name="Ripple"
+                 Stroke="#FFFF3B30"
+                 StrokeThickness="4"
+                 Fill="#33FF3B30"
+                 Opacity="0"
+                 RenderTransformOrigin="0.5,0.5">
+            <Ellipse.RenderTransform>
+                <ScaleTransform x:Name="RippleScale" ScaleX="0.35" ScaleY="0.35"/>
+            </Ellipse.RenderTransform>
+        </Ellipse>
+    </Grid>
+</Window>

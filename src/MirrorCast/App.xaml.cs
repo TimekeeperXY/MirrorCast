@@ -12,6 +12,7 @@ public partial class App : Application
     private NotifyIcon? _notifyIcon;
     private MainWindow? _mainWindow;
     private System.Threading.Mutex? _mutex;
+    private bool _ownsMutex;
     private ThemeService? _themeService;
 
     protected override void OnStartup(StartupEventArgs e)
@@ -19,6 +20,7 @@ public partial class App : Application
         base.OnStartup(e);
 
         _mutex = new System.Threading.Mutex(true, "MirrorCast.SingleInstance", out bool isNew);
+        _ownsMutex = isNew;
         if (!isNew)
         {
             MessageBox.Show("MirrorCast 已在运行中。", "MirrorCast", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -103,7 +105,18 @@ public partial class App : Application
     {
         _notifyIcon?.Dispose();
         _themeService?.Dispose();
-        _mutex?.ReleaseMutex();
+
+        // Only the instance that actually acquired the mutex may release it. On the
+        // "already running" path we created a handle without ownership, and releasing
+        // that throws ApplicationException — which crashed the app instead of letting
+        // it exit quietly after showing the notice.
+        if (_ownsMutex)
+        {
+            try { _mutex?.ReleaseMutex(); }
+            catch (ApplicationException) { /* ownership lost, e.g. abandoned mutex */ }
+        }
+        _mutex?.Dispose();
+
         base.OnExit(e);
     }
 }

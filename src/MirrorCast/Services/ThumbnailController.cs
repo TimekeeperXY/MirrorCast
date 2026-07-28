@@ -11,6 +11,9 @@ public class ThumbnailController
     private IntPtr _thumbnail = IntPtr.Zero;
     private MirrorWindow? _mirrorWindow;
     private CursorOverlayWindow? _cursorWindow;
+    private ClickRippleWindow? _rippleWindow;
+    private bool _leftWasDown;
+    private bool _rightWasDown;
     private IntPtr _destHwnd;
     private DispatcherTimer? _timer;
     private DispatcherTimer? _cursorTimer;
@@ -36,6 +39,12 @@ public class ThumbnailController
         _options = options;
         _wasMinimized = false;
         _lastSourceSize = default;
+        _leftWasDown = false;
+        _rightWasDown = false;
+        // Drain stale transition bits, otherwise the click that started mirroring would
+        // itself fire a ripple on the very first tick.
+        User32.GetAsyncKeyState(User32.VK_LBUTTON);
+        User32.GetAsyncKeyState(User32.VK_RBUTTON);
 
         _mirrorWindow = new MirrorWindow
         {
@@ -72,6 +81,10 @@ public class ThumbnailController
         _cursorWindow.Show();
         _cursorWindow.HideCursor();
 
+        _rippleWindow = new ClickRippleWindow();
+        _rippleWindow.Show();
+        _rippleWindow.Hide();
+
         _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
         _timer.Tick += (_, _) => Tick();
         _timer.Start();
@@ -81,6 +94,7 @@ public class ThumbnailController
         {
             ResyncIfSourceSizeChanged();
             UpdateCursorOverlay();
+            UpdateClickRipples();
         };
         _cursorTimer.Start();
     }
@@ -260,28 +274,89 @@ public class ThumbnailController
             return;
         }
 
-        // Map cursor position from the source window onto the mirrored rectangle.
-        double relX = (double)(cursorPos.X - sourceRect.Left) / sourceRect.Width;
-        double relY = (double)(cursorPos.Y - sourceRect.Top) / sourceRect.Height;
+        var mapped = MapToMirror(cursorPos, sourceRect);
+
+        int w = Math.Max(1, (int)Math.Round(bitmap.PixelWidth * mapped.Scale));
+        int h = Math.Max(1, (int)Math.Round(bitmap.PixelHeight * mapped.Scale));
+        int x = (int)Math.Round(mapped.X - hotspotX * mapped.Scale);
+        int y = (int)Math.Round(mapped.Y - hotspotY * mapped.Scale);
+
+        _cursorWindow.ShowCursor(bitmap, x, y, w, h, _destHwnd);
+    }
+
+    /// <summary>
+    /// Projects a screen point inside the source window onto the mirrored picture,
+    /// returning physical screen coordinates plus the picture's scale factor. Shared by
+    /// the synthetic cursor and the click ripples so the two can never drift apart.
+    /// </summary>
+    private (double X, double Y, double Scale) MapToMirror(POINT point, RECT sourceRect)
+    {
+        double relX = (double)(point.X - sourceRect.Left) / sourceRect.Width;
+        double relY = (double)(point.Y - sourceRect.Top) / sourceRect.Height;
 
         // _lastDestRect is relative to the mirror window's client area, which is
         // positioned at the monitor's physical origin — so add it back for screen coords.
-        double screenX = _targetMonitor.Bounds.Left + _lastDestRect.Left + relX * _lastDestRect.Width;
-        double screenY = _targetMonitor.Bounds.Top + _lastDestRect.Top + relY * _lastDestRect.Height;
+        double x = _targetMonitor!.Bounds.Left + _lastDestRect.Left + relX * _lastDestRect.Width;
+        double y = _targetMonitor.Bounds.Top + _lastDestRect.Top + relY * _lastDestRect.Height;
 
-        // Scale the cursor the same way the picture is scaled, but keep it from
-        // becoming unreadably small when the source is heavily downscaled.
+        // Scale overlays the same way the picture is scaled, but keep them from becoming
+        // unreadably small when the source is heavily downscaled.
         double scale = _lastDestRect.Width > 0 && sourceRect.Width > 0
             ? (double)_lastDestRect.Width / sourceRect.Width
             : 1.0;
-        scale = Math.Clamp(scale, 0.75, 3.0);
 
-        int w = Math.Max(1, (int)Math.Round(bitmap.PixelWidth * scale));
-        int h = Math.Max(1, (int)Math.Round(bitmap.PixelHeight * scale));
-        int x = (int)Math.Round(screenX - hotspotX * scale);
-        int y = (int)Math.Round(screenY - hotspotY * scale);
+        return (x, y, Math.Clamp(scale, 0.75, 3.0));
+    }
 
-        _cursorWindow.ShowCursor(bitmap, x, y, w, h, _destHwnd);
+    /// <summary>
+    /// Detects a fresh press of one mouse button between two polls.
+    ///
+    /// Checking only "is it down now" misses quick clicks that begin and end inside a
+    /// single 33ms tick, so the transition bit — set when the button went down at any
+    /// point since the previous call — is used as well.
+    /// </summary>
+    private static bool WasButtonClicked(int virtualKey, ref bool wasDown)
+    {
+        short state = User32.GetAsyncKeyState(virtualKey);
+        bool isDown = (state & User32.KEY_PRESSED_MASK) != 0;
+        bool wentDownSinceLastPoll = (state & User32.KEY_TRANSITION_MASK) != 0;
+
+        bool clicked = wentDownSinceLastPoll || (isDown && !wasDown);
+        wasDown = isDown;
+        return clicked;
+    }
+
+    /// <summary>
+    /// Fires a ripple on the mirrored picture when the presenter clicks inside the source
+    /// window, so the audience can see *where* a click landed — the mirrored frame alone
+    /// only shows the result, never the act of clicking.
+    /// </summary>
+    private void UpdateClickRipples()
+    {
+        if (_rippleWindow == null || _targetMonitor == null) return;
+
+        bool leftPressed = WasButtonClicked(User32.VK_LBUTTON, ref _leftWasDown);
+        bool rightPressed = WasButtonClicked(User32.VK_RBUTTON, ref _rightWasDown);
+
+        if (!_options.ShowClickEffects || (!leftPressed && !rightPressed)) return;
+
+        // Only clicks landing inside the mirrored window should produce a ripple —
+        // clicking elsewhere on the main screen must not flash the projection.
+        if (!User32.IsWindow(_sourceHwnd) ||
+            User32.IsIconic(_sourceHwnd) ||
+            !TryGetSourceScreenRect(_sourceHwnd, _options.ClientAreaOnly, out var sourceRect) ||
+            sourceRect.Width <= 0 || sourceRect.Height <= 0 ||
+            !User32.GetCursorPos(out var clickPos) ||
+            clickPos.X < sourceRect.Left || clickPos.X >= sourceRect.Right ||
+            clickPos.Y < sourceRect.Top || clickPos.Y >= sourceRect.Bottom)
+        {
+            return;
+        }
+
+        var mapped = MapToMirror(clickPos, sourceRect);
+        int size = Math.Max(24, (int)Math.Round(ClickRippleWindow.RippleSizePx * mapped.Scale));
+
+        _rippleWindow.Play((int)Math.Round(mapped.X), (int)Math.Round(mapped.Y), size, rightPressed);
     }
 
     private static bool TryGetSourceScreenRect(IntPtr hwnd, bool clientAreaOnly, out RECT rect)
@@ -330,6 +405,8 @@ public class ThumbnailController
 
         _cursorWindow?.Close();
         _cursorWindow = null;
+        _rippleWindow?.Close();
+        _rippleWindow = null;
         _mirrorWindow?.Close();
         _mirrorWindow = null;
         _destHwnd = IntPtr.Zero;

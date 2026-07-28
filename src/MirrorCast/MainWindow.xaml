@@ -114,6 +114,8 @@
                               ToolTip="镜像画面本身不含指针，勾选后会把你的指针位置叠加显示出来"/>
                     <CheckBox Content="副屏隐藏真实光标" IsChecked="{Binding HideCursor}" Margin="0,5"
                               ToolTip="当你把鼠标移到副屏上时，隐藏真实的鼠标光标"/>
+                    <CheckBox Content="点击时显示光圈（左键红 / 右键蓝）" IsChecked="{Binding ShowClickEffects}" Margin="0,5"
+                              ToolTip="点击源窗口时，在副屏对应位置闪一个渐隐光圈，让观众看清你点了哪里"/>
                     <CheckBox Content="开机自启动" IsChecked="{Binding StartWithWindows}" Margin="0,5,0,0"/>
 
                     <Border Height="1" Background="{DynamicResource AppCardBorderBrush}" Margin="0,12,0,10"/>

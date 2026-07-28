@@ -75,6 +75,9 @@ public static class User32
     public static extern bool GetCursorPos(out POINT lpPoint);
 
     [DllImport("user32.dll")]
+    public static extern short GetAsyncKeyState(int vKey);
+
+    [DllImport("user32.dll")]
     public static extern bool GetCursorInfo(ref CURSORINFO pci);
 
     [DllImport("user32.dll")]
@@ -91,6 +94,22 @@ public static class User32
     public static extern int GetObject(IntPtr hgdiobj, int cbBuffer, ref BITMAP lpvObject);
 
     public const int CURSOR_SHOWING = 0x00000001;
+
+    // Polled with GetAsyncKeyState rather than a WH_MOUSE_LL hook on purpose: low-level
+    // mouse hooks are a common antivirus heuristic trigger, and a tool meant to be handed
+    // out to students should not look like a keylogger. We already poll at 33ms anyway.
+    public const int VK_LBUTTON = 0x01;
+    public const int VK_RBUTTON = 0x02;
+
+    /// <summary>High bit: the button is down right now.</summary>
+    public const short KEY_PRESSED_MASK = unchecked((short)0x8000);
+
+    /// <summary>
+    /// Low bit: the button went down at some point since the previous GetAsyncKeyState
+    /// call. Needed because a quick click can begin and end entirely between two polls,
+    /// which the "currently down" bit alone would miss.
+    /// </summary>
+    public const short KEY_TRANSITION_MASK = 0x0001;
     public const int DI_NORMAL = 0x0003;
 
     public const uint GW_OWNER = 4;

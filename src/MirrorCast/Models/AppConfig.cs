@@ -9,6 +9,7 @@ public class AppConfig
     public bool ClientAreaOnly { get; set; } = true;
     public bool HideCursor { get; set; } = true;
     public bool ShowSyntheticCursor { get; set; } = true;
+    public bool ShowClickEffects { get; set; } = true;
     public bool StartWithWindows { get; set; }
 
     /// <summary>Set once the first-run walkthrough has been shown, so it never reappears.</summary>

@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Data;
@@ -79,6 +79,13 @@ public class MainViewModel : ViewModelBase
     {
         get => _showSyntheticCursor;
         set => SetField(ref _showSyntheticCursor, value);
+    }
+
+    private bool _showClickEffects = true;
+    public bool ShowClickEffects
+    {
+        get => _showClickEffects;
+        set => SetField(ref _showClickEffects, value);
     }
 
     private string _toggleHotkey = "Ctrl+Alt+M";
@@ -233,6 +240,7 @@ public class MainViewModel : ViewModelBase
         ClientAreaOnly = _config.ClientAreaOnly;
         HideCursor = _config.HideCursor;
         ShowSyntheticCursor = _config.ShowSyntheticCursor;
+        ShowClickEffects = _config.ShowClickEffects;
         if (!string.IsNullOrWhiteSpace(_config.ToggleHotkey))
             ToggleHotkey = _config.ToggleHotkey;
         _startWithWindows = StartupService.IsEnabled();
@@ -320,7 +328,8 @@ public class MainViewModel : ViewModelBase
                 ScaleMode = ScaleMode,
                 ClientAreaOnly = ClientAreaOnly,
                 HideCursor = HideCursor,
-                ShowSyntheticCursor = ShowSyntheticCursor
+                ShowSyntheticCursor = ShowSyntheticCursor,
+                ShowClickEffects = ShowClickEffects
             };
 
             _controller.Start(SelectedWindow.Hwnd, SelectedMonitor, options);
@@ -426,6 +435,7 @@ public class MainViewModel : ViewModelBase
         _config.ClientAreaOnly = ClientAreaOnly;
         _config.HideCursor = HideCursor;
         _config.ShowSyntheticCursor = ShowSyntheticCursor;
+        _config.ShowClickEffects = ShowClickEffects;
         _config.ToggleHotkey = ToggleHotkey;
         _config.StartWithWindows = StartWithWindows;
         _configService.Save(_config);
