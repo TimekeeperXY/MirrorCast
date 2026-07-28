@@ -36,6 +36,18 @@ chmod +x build.sh
 
 产物在 `mac/.build/bundle/MirrorCast.app`。
 
+## 打包 DMG
+
+当前发布包面向 Apple Silicon Mac（arm64）：
+
+```bash
+cd mac
+chmod +x package-dmg.sh
+./package-dmg.sh
+```
+
+产物在 `mac/dist/`，同时生成对应的 SHA-256 校验文件。
+
 ## 首次运行必须授权
 
 macOS 不授权就完全读不到窗口画面。首次打开会看到授权提示：

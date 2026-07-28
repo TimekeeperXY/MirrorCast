@@ -9,6 +9,7 @@ x86/
 publish/
 artifacts/
 mac/.build/
+mac/dist/
 *.dll
 *.exe
 *.pdb
