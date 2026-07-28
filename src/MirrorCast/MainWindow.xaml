@@ -204,7 +204,9 @@
 
         <!-- First-run walkthrough. Sits above everything; shown once, then never again. -->
         <Grid x:Name="OnboardingOverlay" Visibility="Collapsed" Panel.ZIndex="100">
-            <Rectangle Fill="#B0000000"/>
+            <!-- Keep the walkthrough modal while the dimmer leaves a clear spotlight over the target. -->
+            <Rectangle Fill="Transparent"/>
+            <Path x:Name="OnboardingDimmer" Fill="#B0000000" IsHitTestVisible="False"/>
 
             <!-- Ring drawn over whichever control the current step is talking about -->
             <Border x:Name="OnboardingHighlight"

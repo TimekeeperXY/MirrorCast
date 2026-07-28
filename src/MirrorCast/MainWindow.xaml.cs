@@ -24,6 +24,9 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
+        OnboardingOverlay.SizeChanged += (_, _) => UpdateOnboardingSpotlight();
+        OnboardingHighlight.LayoutUpdated += (_, _) => UpdateOnboardingSpotlight();
+
         ViewModel = new MainViewModel();
         DataContext = ViewModel;
 
@@ -149,6 +152,7 @@ public partial class MainWindow : Window
         if (target == null || !target.IsVisible)
         {
             OnboardingHighlight.Visibility = Visibility.Collapsed;
+            UpdateOnboardingSpotlight();
             PlaceOnboardingCard(null);
             return;
         }
@@ -161,6 +165,32 @@ public partial class MainWindow : Window
         OnboardingHighlight.Visibility = Visibility.Visible;
         AnimateHighlightTo(bounds);
         PlaceOnboardingCard(bounds);
+    }
+
+    private void UpdateOnboardingSpotlight()
+    {
+        if (OnboardingOverlay.ActualWidth <= 0 || OnboardingOverlay.ActualHeight <= 0)
+            return;
+
+        var dimmerGeometry = new GeometryGroup { FillRule = FillRule.EvenOdd };
+        dimmerGeometry.Children.Add(new RectangleGeometry(
+            new Rect(0, 0, OnboardingOverlay.ActualWidth, OnboardingOverlay.ActualHeight)));
+
+        if (OnboardingHighlight.Visibility == Visibility.Visible &&
+            OnboardingHighlight.ActualWidth > 0 &&
+            OnboardingHighlight.ActualHeight > 0)
+        {
+            var topLeft = OnboardingHighlight.TranslatePoint(
+                new System.Windows.Point(0, 0), OnboardingOverlay);
+            var spotlight = new Rect(
+                topLeft,
+                new System.Windows.Size(
+                    OnboardingHighlight.ActualWidth,
+                    OnboardingHighlight.ActualHeight));
+            dimmerGeometry.Children.Add(new RectangleGeometry(spotlight, 12, 12));
+        }
+
+        OnboardingDimmer.Data = dimmerGeometry;
     }
 
     private void AnimateHighlightTo(Rect bounds)
