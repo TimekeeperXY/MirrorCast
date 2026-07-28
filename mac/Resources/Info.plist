@@ -13,19 +13,14 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.1.0</string>
+    <string>1.2.0</string>
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>120</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
     <key>NSHighResolutionCapable</key>
     <true/>
-    <!--
-      M1 keeps the Dock icon so the app is easy to launch and quit while testing.
-      The menu-bar-only mode (LSUIElement = true) lands in M3 together with the
-      status item, matching the Windows tray behaviour.
-    -->
     <key>LSUIElement</key>
-    <false/>
+    <true/>
 </dict>
 </plist>

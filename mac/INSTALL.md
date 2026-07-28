@@ -4,13 +4,16 @@ MirrorCast 当前没有使用付费的 Apple Developer ID 签名和公证。第�
 
 请只从本项目的官方 GitHub Releases 页面下载 MirrorCast，不要运行第三方重新打包的版本。
 
+当前 DMG 发布包面向 Apple Silicon Mac（M1、M2、M3、M4 及后续芯片），要求 macOS 13 或更高版本。
+
 ## 安装
 
-1. 从 GitHub Releases 下载最新版 macOS 压缩包。
-2. 双击压缩包解压。
-3. 将 `MirrorCast.app` 拖入“应用程序”文件夹。
-4. 不要直接双击。打开 Finder 的“应用程序”，按住 `Control` 单击 `MirrorCast`，选择“打开”。
-5. 在随后出现的确认窗口中再次点击“打开”。
+1. 从 GitHub Releases 下载最新版 `MirrorCast-*-macOS-arm64.dmg`。
+2. 双击 DMG 打开安装窗口。
+3. 将 `MirrorCast.app` 拖到旁边的“Applications”快捷方式。
+4. 在 Finder 侧边栏推出 MirrorCast 磁盘映像。
+5. 不要直接双击。打开 Finder 的“应用程序”，按住 `Control` 单击 `MirrorCast`，选择“打开”。
+6. 在随后出现的确认窗口中再次点击“打开”。
 
 完成一次后，以后可以像普通应用一样启动 MirrorCast。
 
