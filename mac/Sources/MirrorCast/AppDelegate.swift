@@ -1,6 +1,9 @@
 import AppKit
 import SwiftUI
 
+/// Main-actor isolated because every AppKit delegate callback arrives on the main thread
+/// anyway, and both `AppState` and the mirror window controller are main-actor isolated.
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var panelWindow: NSWindow?
@@ -28,7 +31,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Re-check permission whenever the app comes back to the front — the user may have
     /// just flipped the switch in System Settings.
     func applicationDidBecomeActive(_ notification: Notification) {
-        Task { @MainActor in
+        Task {
             state.refreshPermission()
             await state.refreshSources()
         }
@@ -41,6 +44,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        Task { @MainActor in await state.stopMirroring() }
+        // Termination gives us no chance to await, so tear the mirror window down
+        // synchronously. The capture stream dies with the process.
+        state.shutdown()
     }
 }

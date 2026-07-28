@@ -185,4 +185,9 @@ final class AppState: ObservableObject {
         mirrorWindow.close()
         isMirroring = false
     }
+
+    /// Synchronous teardown for app termination, where awaiting is not an option.
+    func shutdown() {
+        finishMirroring()
+    }
 }
