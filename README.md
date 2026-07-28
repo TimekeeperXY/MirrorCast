@@ -1,211 +1,197 @@
 <div align="center">
 
-# MirrorCast · 窗口镜像
+# MirrorCast
 
-**把主屏上任意一个程序窗口，实时镜像到副屏全屏显示。**
+**把主屏上的单个窗口实时镜像到副屏，全屏展示而不暴露整个桌面。**
 
-零 CPU / 零 GPU 开销 · 零延迟 · 常驻托盘 · 零学习成本
+[![Windows](https://img.shields.io/badge/Windows-10%201809%2B-0078D4?logo=windows)](https://github.com/TimekeeperXY/MirrorCast/releases)
+[![macOS](https://img.shields.io/badge/macOS-13%2B-000000?logo=apple)](https://github.com/TimekeeperXY/MirrorCast/releases/tag/v1.2.0)
+[![Release](https://img.shields.io/github/v/release/TimekeeperXY/MirrorCast)](https://github.com/TimekeeperXY/MirrorCast/releases)
+[![License](https://img.shields.io/badge/license-MIT-2ea44f)](LICENSE)
 
-[![Platform](https://img.shields.io/badge/platform-Windows%2010%201809%2B%20%7C%2011-0078D4)](https://www.microsoft.com/windows)
-[![.NET](https://img.shields.io/badge/.NET-8.0-512BD4)](https://dotnet.microsoft.com/)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[下载 Windows 版](https://github.com/TimekeeperXY/MirrorCast/releases/download/v1.1.1/MirrorCast.exe) ·
+[下载 macOS DMG](https://github.com/TimekeeperXY/MirrorCast/releases/download/v1.2.0/MirrorCast-v1.2.0-macOS-arm64.dmg) ·
+[查看全部版本](https://github.com/TimekeeperXY/MirrorCast/releases)
 
 </div>
 
 ---
 
-## 这个工具解决什么问题
+## MirrorCast 能做什么
 
-双屏讲课、直播、开会的时候，你大概率遇到过这些尴尬：
+在讲课、演示、直播或会议中，你通常只想让观众看到 PPT、浏览器或某个应用窗口，而不是整个桌面。
 
-| 痛点 | 现状 |
-|------|------|
-| **想只投 PPT，不想暴露主屏** | Windows 自带的「复制显示器」是**整屏复制**，主屏上的备课笔记、微信消息、AI 对话框全都投出去了 |
-| **把窗口拖到副屏就失控了** | 窗口一旦拖过去，主屏上就看不到了，翻页、切页面都得扭头看副屏，操作起来非常别扭 |
-| **用 OBS 的「全屏投影源」** | 能做到，但为了投个窗口要长期开着一整个 OBS，太重了 |
-| **会议里只想共享一个窗口** | 共享整个桌面容易误露隐私，共享单窗口又常常受软件限制 |
+MirrorCast 会把选中的窗口留在主屏原位，同时将它实时显示在副屏上。主屏可以继续操作其他软件，副屏始终只展示镜像内容。
 
-**MirrorCast 的做法**：主屏窗口留在原地不动，你照常操作；副屏独立全屏显示这个窗口的实时画面。两边互不干扰。
-
-```
-┌─────────── 主屏（你操作）───────────┐   ┌──── 副屏（观众看）────┐
-│  PPT 编辑器 · 备课笔记 · 微信 · AI  │ → │      PPT 全屏画面      │
-└─────────────────────────────────────┘   └────────────────────────┘
+```text
+┌──────────── 主屏：你操作 ────────────┐    ┌──── 副屏：观众观看 ────┐
+│ PPT · 备课笔记 · 聊天软件 · 浏览器   │ ─→ │      指定窗口全屏       │
+└──────────────────────────────────────┘    └────────────────────────┘
 ```
 
----
+## 主要功能
 
-## 特色
+- 单窗口镜像，不暴露整个桌面
+- 副屏无边框全屏显示，支持不同分辨率和 DPI
+- 多种缩放模式，可保留比例、填满或拉伸
+- 可选择是否在副屏显示鼠标指针
+- 镜像期间直接切换源窗口，无需退出副屏全屏
+- 源窗口关闭或目标显示器断开时自动停止
+- 自定义全局快捷键，一键开始或停止镜像
+- 常驻系统托盘或菜单栏，自动保存常用设置
+- 首次运行提供权限和操作流程引导
 
-**⚡ 真正的零开销**
-基于 Windows **DWM Thumbnail API**，画面由系统合成器直接搬运，不经过截图、编码、渲染管线。实测镜像运行时 CPU 占用 **0.011%**，帧延迟 ≤ 1 帧，肉眼无感。
+## 平台支持
 
-**🔄 不中断切换镜像窗口**
-讲课中途要换个窗口投影？点「更换镜像窗口」，副屏画面**不会黑屏、不会闪烁**，直接原地切到新窗口。底层只替换缩略图源，镜像窗口本身全程不重建。
+| | Windows | macOS |
+|---|---|---|
+| 系统要求 | Windows 10 1809+ / Windows 11 | macOS 13+ |
+| 发布架构 | x64 | Apple Silicon arm64 |
+| 安装包 | 单文件 `MirrorCast.exe` | `MirrorCast-*-macOS-arm64.dmg` |
+| 镜像技术 | DWM Thumbnail | ScreenCaptureKit + IOSurface |
+| 后台入口 | 系统托盘 | 菜单栏 |
+| 默认快捷键 | `Ctrl + Alt + M` | `Control + Option + M` |
+| 额外权限 | 无 | 屏幕录制 |
 
-**📐 三种缩放模式，永不变形**
-- **等比适应**（默认）— 保持宽高比，居中显示，边缘补黑边。PPT、视频首选
-- **拉伸填满** — 强制铺满副屏
-- **原始尺寸** — 1:1 像素级显示；源窗口大于副屏时等比缩小，绝不压扁拉长
-
-拖动改变源窗口大小时，副屏画面**实时跟随**（33ms 检测），不会出现变形过渡。
-
-**🖱 副屏合成鼠标指针**
-DWM 缩略图本身**不含鼠标指针**（系统限制）。MirrorCast 实时读取真实光标位置与样式，按比例叠加到副屏画面上——观众能看到你的指针在动，箭头 / 手型 / 文本光标都会还原。可在设置里关闭。
-
-**🎨 现代化界面，跟随系统主题**
-Windows 11 原生 **Mica 云母材质**背景（Win10 自动降级为亚克力模糊），浅色 / 深色主题**实时跟随系统**切换，无需重启。
-
-**🛡 贴心的异常处理**
-- 源窗口最小化 → 副屏提示「源窗口已最小化」，恢复后自动继续
-- 源窗口被关闭 → 自动停止镜像并提示
-- 副屏被拔掉 → 自动停止镜像，回到主面板
-
-**⌨️ 效率细节**
-全局快捷键一键开关，**可自定义成你习惯的组合键** · 首次打开有分步操作引导 · 窗口列表实时搜索 · 常驻系统托盘 · 配置自动持久化，下次启动智能恢复上次选择 · 支持开机自启动 · **无需管理员权限**
-
----
-
-## 系统要求
-
-- **Windows 10 1809+ 或 Windows 11**（Mica 材质需 Windows 11，Win10 自动降级为亚克力）
-- 至少 **2 个显示器**，且工作在**扩展模式**（不是复制模式）
-- 从源码构建需要 [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-
----
+两种实现都尽量让画面留在 GPU 路径中。Windows 使用 DWM 合成，开销接近系统原生缩略图；macOS 使用 ScreenCaptureKit 捕获流，资源占用会高于 Windows 版。
 
 ## 安装
 
-> macOS 版本请参阅 [MirrorCast macOS 安装指南](mac/INSTALL.md)，其中包含未公证版本的首次打开和屏幕录制授权步骤。
+### Windows
 
-### 方式一：下载现成的（推荐）
+1. 下载 [MirrorCast v1.1.1 Windows EXE](https://github.com/TimekeeperXY/MirrorCast/releases/download/v1.1.1/MirrorCast.exe)。
+2. 双击运行，无需安装 .NET 或其他运行库。
+3. 如果 Windows SmartScreen 显示“已保护你的电脑”，点击“更多信息”后选择“仍要运行”。
 
-前往 [Releases](../../releases) 下载最新的 `MirrorCast.exe`，**双击即可运行**。
+MirrorCast 是便携应用。退出程序后删除 `MirrorCast.exe` 即可卸载。
 
-单文件便携版，已内置 .NET 运行时，无需安装任何环境，不写注册表（除非你手动开启「开机自启动」），删掉文件即卸载。
+### macOS
 
-> Windows SmartScreen 可能会提示「已保护你的电脑」——这是未购买代码签名证书的开源软件的常见现象。点「更多信息」→「仍要运行」即可。
+当前 DMG 支持 Apple Silicon Mac，包括 M1、M2、M3、M4 及后续芯片。
 
-### 方式二：从源码构建
+1. 下载 [MirrorCast v1.2.0 macOS DMG](https://github.com/TimekeeperXY/MirrorCast/releases/download/v1.2.0/MirrorCast-v1.2.0-macOS-arm64.dmg)。
+2. 双击 DMG，将 `MirrorCast.app` 拖到 `Applications`。
+3. 打开 Finder 的“应用程序”，按住 `Control` 单击 MirrorCast，选择“打开”。
+4. 在确认窗口中再次点击“打开”。
+5. 根据软件提示授予“屏幕录制”权限，然后完全退出并重新打开 MirrorCast。
+
+> [!IMPORTANT]
+> macOS 版使用 ad-hoc 签名，未经过 Apple 公证。如果系统没有提供“打开”按钮，请前往“系统设置 → 隐私与安全性”点击“仍要打开”。
+
+如果系统提示“应用已损坏”，请先确认 DMG 来自本仓库官方 Release，然后执行：
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/MirrorCast.app"
+```
+
+这条命令只移除 MirrorCast 的下载隔离标记。**不要全局关闭 Gatekeeper。**
+
+完整的安装、授权、更新和卸载说明请参阅 [macOS 安装指南](mac/INSTALL.md)。
+
+## 使用方法
+
+1. 将两块显示器设置为“扩展”模式，而不是“复制”模式。
+2. 打开 MirrorCast，选择要镜像的窗口。
+3. 选择目标显示器、缩放模式和鼠标指针选项。
+4. 点击“开始镜像”，或使用全局快捷键。
+
+镜像开始后，可以直接在窗口列表中选择另一个窗口，副屏会自动切换。关闭控制面板不会退出程序；请通过系统托盘或菜单栏重新打开、停止镜像或退出。
+
+### 自定义快捷键
+
+点击界面中的快捷键按钮，然后按下新的组合键。组合键需要包含至少一个修饰键：
+
+- Windows：`Ctrl`、`Alt` 或 `Shift`
+- macOS：`Control`、`Option`、`Shift` 或 `Command`
+
+按 `Esc` 取消录制。如果组合键被其他应用占用，MirrorCast 会保留原设置。
+
+## 缩放模式
+
+| 平台 | 模式 | 效果 |
+|---|---|---|
+| Windows | 等比适应 | 保持宽高比并完整显示，空余区域补黑边 |
+| Windows | 拉伸填满 | 强制铺满副屏，可能改变宽高比 |
+| Windows | 原始尺寸 | 优先按 1:1 显示，超出副屏时等比缩小 |
+| macOS | 适应 | 保持宽高比并完整显示，空余区域补黑边 |
+| macOS | 填满 | 保持宽高比并铺满副屏，边缘可能裁切 |
+| macOS | 拉伸 | 强制铺满副屏，可能改变宽高比 |
+
+## 已知限制
+
+### 通用
+
+- MirrorCast 是只读镜像工具，不会把副屏点击或键盘操作传回源窗口。
+- 不提供录制、推流、叠加特效或远程控制功能。
+- 至少需要两块显示器，并处于扩展模式。
+
+### Windows
+
+- 全屏独占模式的游戏可能无法被 DWM 捕获，建议使用无边框窗口模式。
+- 源窗口最小化后，画面可能冻结在最后一帧。
+- 高权限窗口和部分 UWP / WinUI 窗口可能无法枚举。
+
+### macOS
+
+- 当前官方 DMG 仅提供 Apple Silicon arm64 版本。
+- 首次运行必须授予屏幕录制权限，并在授权后重启应用。
+- 因未使用 Apple Developer ID，不同版本更新后可能需要重新授权。
+
+## 从源码构建
+
+### Windows
+
+需要 [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)：
 
 ```bash
 git clone https://github.com/TimekeeperXY/MirrorCast.git
 cd MirrorCast
-dotnet publish src/MirrorCast -c Release -r win-x64 --self-contained -p:PublishSingleFile=true
-```
-
-产物在 `src/MirrorCast/bin/Release/net8.0-windows/win-x64/publish/MirrorCast.exe`。
-
-开发调试直接跑：
-
-```bash
 dotnet run --project src/MirrorCast
 ```
 
----
+生成单文件版本：
 
-## 使用
-
-### 基本流程
-
-1. **确认双屏工作在扩展模式**（`Win + P` → 选择「扩展」）
-2. **打开 MirrorCast**
-3. **从列表选择要镜像的窗口**（支持搜索，列表每 2 秒自动刷新）
-4. **选择目标显示器**（默认自动选中副屏）
-5. **点击「开始镜像」**，副屏立刻全屏显示该窗口
-6. 主屏继续自由操作，讲课结束点「停止镜像」或按 `Ctrl+Alt+M`
-
-### 快捷键
-
-| 快捷键 | 作用 |
-|--------|------|
-| `Ctrl + Alt + M` | 开始 / 停止镜像（全局，任意界面都能用）**可自定义** |
-| `Ctrl + Alt + Shift + M` | 停止镜像并调出主控制面板 |
-| `Esc` | 在副屏镜像窗口上按下，退出镜像 |
-
-想换成别的组合键，点设置区里的「快捷键」按钮，然后直接按下新组合即可（需包含 Ctrl / Alt / Shift 之一，按 `Esc` 取消）。如果该组合已被其他程序占用，会提示并保留原设置。
-
-### 讲课实战建议
-
-- 勾选 **「只显示窗口内容（不含标题栏）」**，副屏画面更干净，观众看不到标题栏和边框
-- PPT 建议用 **「等比适应」** 模式，任何比例都不会变形
-- 关闭主面板不会退出程序，会最小化到托盘；托盘右键可快速开关镜像
-- 配置会自动保存到 `%APPDATA%\MirrorCast\config.json`，下次启动自动恢复上次的窗口和显示器选择
-
----
-
-## 已知限制
-
-这些是 DWM Thumbnail 方案的**固有限制**，不是 bug，写在这里避免你踩坑：
-
-- ❌ **副屏画面上的鼠标 / 键盘点击不会传回源窗口** — 副屏是「只读」的画面镜像。如需副屏可交互，得换 Windows Graphics Capture 方案
-- ❌ **不支持录制画面、加特效** — DWM 缩略图不产生可访问的帧数据
-- ❌ **全屏独占模式的 D3D 游戏可能无法镜像** — DWM 无法合成这类窗口（改用无边框窗口模式即可）
-- ❌ **源窗口最小化时不会继续渲染** — 只显示黑屏或最后一帧，这是 DWM 特性
-- ⚠️ **部分 UWP / WinUI 应用可能镜像失败** — 建议实测
-- ⚠️ **以管理员身份运行的窗口（如任务管理器）可能枚举不到** — Windows UIPI 安全限制，属预期行为
-
----
-
-## 技术原理
-
-核心只有一句话：**用 `DwmRegisterThumbnail` 让系统合成器直接把源窗口的画面画到副屏窗口上。**
-
-```
-源窗口 HWND ──┐
-              ├─→ DwmRegisterThumbnail ─→ DWM 合成器直接搬运画面 ─→ 副屏全屏窗口
-副屏窗口 HWND ─┘
+```bash
+dotnet publish src/MirrorCast -c Release -r win-x64 --self-contained -p:PublishSingleFile=true
 ```
 
-因为画面从头到尾没离开过 GPU、没经过任何截图/编码步骤，所以才能做到近乎零开销和零延迟。
+### macOS
 
-关键实现点：
-- **缩略图绘制在目标窗口内容之上**。这是最容易踩的坑：DWM 是在目标窗口自身的渲染结果**上层**合成缩略图的，所以你在镜像窗口里画的任何东西（光标、水印、角标）都会被镜像画面完全盖住，永远看不见。若需要叠加内容，必须放到**另一个独立的顶层窗口**里（本项目的 `CursorOverlayWindow` 就是为此存在）
-- **`DwmUpdateThumbnailProperties`** 设置目标矩形，三种缩放模式就是在算这个矩形。**注意 DWM 会把源画面拉伸填满目标矩形而不是裁剪**，所以矩形必须严格保持源画面宽高比，否则画面变形
-- **源窗口最小化时缩略图会继续显示冻结的最后一帧**，需要主动把 `fVisible` 设为 false 才能露出下层的提示文字
-- **Per-Monitor DPI Aware V2**（在 `app.manifest` 声明），保证混合 DPI 多屏场景下坐标计算正确
-- **`DwmSetWindowAttribute` + `DwmExtendFrameIntoClientArea`** 实现 Mica 背景；WPF 还需额外把 `HwndTarget.BackgroundColor` 设为透明，否则底层会填充不透明黑色
+需要 macOS 13+ 和 Xcode Command Line Tools：
 
-### 项目结构
-
-```
-src/MirrorCast/
-├── Interop/          # DWM / User32 P/Invoke 声明
-├── Services/         # 窗口枚举、显示器枚举、缩略图控制（核心）、配置、主题、快捷键
-├── Models/           # 数据模型
-├── ViewModels/       # MVVM 视图模型
-├── Themes/           # 浅色 / 深色配色 + 控件样式
-├── MainWindow.xaml         # 主控制面板
-├── MirrorWindow.xaml       # 副屏全屏镜像窗口
-└── CursorOverlayWindow.xaml # 指针叠加层（必须独立于镜像窗口，见上文）
+```bash
+git clone https://github.com/TimekeeperXY/MirrorCast.git
+cd MirrorCast/mac
+./build.sh --run
 ```
 
----
+生成 Apple Silicon DMG：
 
-## 参考资料
+```bash
+./package-dmg.sh
+```
 
-- [DWM Thumbnail Overview](https://learn.microsoft.com/en-us/windows/win32/dwm/thumbnail-ovw)
-- [DwmRegisterThumbnail](https://learn.microsoft.com/en-us/windows/win32/api/dwmapi/nf-dwmapi-dwmregisterthumbnail)
-- [DWM_THUMBNAIL_PROPERTIES](https://learn.microsoft.com/en-us/windows/win32/api/dwmapi/ns-dwmapi-dwm_thumbnail_properties)
+更多实现和构建信息请参阅 [macOS 开发文档](mac/README.md)。
 
----
+## 技术概览
+
+| 目录 | 内容 |
+|---|---|
+| `src/MirrorCast/` | Windows WPF 应用、DWM / User32 互操作和 MVVM 逻辑 |
+| `mac/Sources/MirrorCast/` | macOS AppKit / SwiftUI 应用和 ScreenCaptureKit 捕获逻辑 |
+| `mac/INSTALL.md` | macOS 安装与 Gatekeeper 排障 |
+| `docs/plans/` | 功能设计与实施计划 |
 
 ## 参与贡献
 
-欢迎提 [Issue](../../issues) 反馈问题或建议新功能，也欢迎直接提 Pull Request。
-
----
+欢迎通过 [Issues](https://github.com/TimekeeperXY/MirrorCast/issues) 反馈问题，也欢迎提交 Pull Request。反馈问题时请注明操作系统版本、显示器分辨率和复现步骤。
 
 ## License
 
-[MIT](LICENSE) — 随便用，商用也行。
-
----
+MirrorCast 使用 [MIT License](LICENSE)。
 
 <div align="center">
 
-**created by [@晓阳的百宝箱](https://github.com/TimekeeperXY)**
-
-如果这个工具帮到了你，点个 ⭐ 是最好的支持
+created by [@晓阳的百宝箱](https://github.com/TimekeeperXY)
 
 </div>

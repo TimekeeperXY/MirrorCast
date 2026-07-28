@@ -1,93 +1,114 @@
 # MirrorCast for macOS
 
-Windows 版的 macOS 移植。**当前进度：M4（封装与分发）。**
+MirrorCast 的 macOS 版本使用 ScreenCaptureKit 捕获单个窗口，通过 IOSurface 直接交给 CALayer 显示在目标屏幕上。
 
-## 与 Windows 版的根本差异
+- 用户安装与权限处理：[macOS 安装指南](INSTALL.md)
+- 项目总览与使用说明：[根 README](../README.md)
+- 最新 Apple Silicon DMG：[MirrorCast v1.2.0](https://github.com/TimekeeperXY/MirrorCast/releases/tag/v1.2.0)
 
-Windows 版基于 DWM Thumbnail —— 告诉系统合成器「把窗口 X 画到这里」，画面全程不出 GPU，所以 CPU 占用只有 0.011%。
+## 系统要求
 
-**macOS 没有对等的公开 API。** 这里改用 **ScreenCaptureKit**：它是真正的捕获流，会产出帧。开销靠「永不用 CPU 碰这些像素」压到最低——每帧的 `IOSurface` 直接赋给 `CALayer.contents`，数据始终留在 GPU 上。
+- macOS 13 Ventura 或更高版本
+- Apple Silicon Mac
+- 至少两块显示器，并处于扩展模式
 
-代价是 CPU 占用达不到 Windows 版那个量级（预期低个位数 %），但换来两个好处：
+从源码构建还需要 Xcode Command Line Tools：
 
-| | Windows | macOS |
-|---|---|---|
-| 鼠标指针 | 需自行合成叠加（踩过两轮坑） | `showsCursor = true` 一行 |
-| 缩放模式 | 手算目标矩形（踩过宽高比坑） | `contentsGravity` 枚举 |
+```bash
+xcode-select --install
+```
 
-## 环境要求
+## macOS 版能力
 
-- macOS 13 (Ventura) 或更高
-- 至少两台显示器，且处于**扩展**模式
+- 单窗口捕获与副屏无边框全屏显示
+- 适应、填满、拉伸三种缩放模式
+- 按源窗口所在屏幕的 backing scale 配置捕获分辨率
+- 源窗口改变大小时动态更新捕获配置
+- 镜像期间单击窗口列表即可切换源窗口
+- 鼠标指针显示开关
+- 源窗口关闭或目标显示器断开时自动停止
+- 跨 Space 保持副屏镜像
+- 副屏镜像窗口点击穿透
+- 菜单栏常驻与自定义全局快捷键
+- 显示器、缩放、指针、窗口和快捷键设置持久化
+- 屏幕录制权限引导与五步使用教学
 
-## 下载与安装
-
-由于当前版本没有使用付费的 Apple Developer ID 签名和公证，首次打开时会出现 macOS 安全提示。请按照 [macOS 安装指南](INSTALL.md) 完成安装、安全确认和屏幕录制授权。
-
-## 构建与运行
-
-从源码构建需要 Xcode Command Line Tools（`xcode-select --install`）。
+## 构建应用
 
 ```bash
 cd mac
-chmod +x build.sh
+./build.sh
+```
+
+生成的应用位于：
+
+```text
+mac/.build/bundle/MirrorCast.app
+```
+
+构建并立即运行：
+
+```bash
 ./build.sh --run
 ```
 
-产物在 `mac/.build/bundle/MirrorCast.app`。
+`build.sh` 会进行 Release 编译、组装 `.app` 并使用 ad-hoc 签名。
 
 ## 打包 DMG
 
-当前发布包面向 Apple Silicon Mac（arm64）：
-
 ```bash
 cd mac
-chmod +x package-dmg.sh
 ./package-dmg.sh
 ```
 
-产物在 `mac/dist/`，同时生成对应的 SHA-256 校验文件。
+脚本会依次执行：
 
-## 首次运行必须授权
+1. Release 构建
+2. App 签名和 plist 校验
+3. arm64 架构检查
+4. 创建包含 `MirrorCast.app` 和 Applications 快捷方式的压缩 DMG
+5. DMG 完整性检查
+6. 生成 SHA-256 文件
 
-macOS 不授权就完全读不到窗口画面。首次打开会看到授权提示：
+产物位于：
 
-1. 点「去授权」，系统会弹窗或直接跳转到设置
-2. 在「系统设置 → 隐私与安全性 → 屏幕录制」中勾选 **MirrorCast**
-3. **完全退出 MirrorCast 后重新打开**（这一步经常被漏掉，不重启的话即使勾了也读不到窗口）
+```text
+mac/dist/MirrorCast-v<版本>-macOS-arm64.dmg
+mac/dist/MirrorCast-v<版本>-macOS-arm64.dmg.sha256
+```
 
-### 关于「每次重新构建都要重新授权」
+## 实现结构
 
-因为没有付费的 Apple Developer ID，只能用 ad-hoc 签名，而它的身份哈希**每次编译都会变**——macOS 会把新构建当成另一个 App。
+```text
+mac/Sources/MirrorCast/
+├── Capture/       # ScreenCaptureKit 捕获与帧输出
+├── Mirror/        # 副屏窗口、CALayer 显示和缩放模式
+├── Services/      # 权限、偏好设置、菜单栏和全局快捷键
+├── UI/            # 控制面板、权限引导和使用教学
+├── AppDelegate.swift
+├── AppState.swift
+└── Main.swift
+```
 
-如果出现「设置里明明勾了却还是没权限」：把列表里旧的 MirrorCast 条目用 `−` 删掉，再重新添加新构建的那个。
+## 与 Windows 版的差异
 
-## M1 范围
+| | Windows | macOS |
+|---|---|---|
+| 底层技术 | DWM Thumbnail | ScreenCaptureKit |
+| 帧数据 | 系统合成器直接处理 | SCStream 输出 IOSurface |
+| 鼠标指针 | 独立窗口合成 | ScreenCaptureKit 原生捕获 |
+| 后台入口 | 系统托盘 | 菜单栏 |
+| 权限 | 无额外权限 | 需要屏幕录制权限 |
 
-- [x] 屏幕录制权限检测与申请
-- [x] 窗口枚举（`SCShareableContent`）
-- [x] 显示器枚举（`NSScreen`）
-- [x] 单窗口捕获（`SCStream` + 窗口过滤器）
-- [x] 副屏无边框全屏显示（`IOSurface` → `CALayer`）
-- [x] 源窗口关闭时自动停止
+macOS 没有与 DWM Thumbnail 对等的公开 API，因此资源占用会高于 Windows 版。实现中不读取 CPU 侧像素，每帧 IOSurface 直接交给 CALayer，尽量保持 GPU 路径。
 
-## M2 范围
+## 分发限制
 
-- [x] 三种缩放模式（适应、填满、拉伸）
-- [x] 捕获分辨率按源窗口所在屏的 backing scale 配置
-- [x] 源窗口尺寸变化跟随
-- [x] 镜像期间直接切换源窗口
-- [x] 副屏拔出时自动停止
+当前项目没有使用付费的 Apple Developer ID：
 
-## M3 范围
+- App 使用 ad-hoc 签名，未经过 Apple 公证。
+- 首次启动需要用户通过 Finder 右键“打开”或系统设置确认。
+- 更新不同构建后，macOS 可能要求重新授予屏幕录制权限。
+- 当前官方 DMG 仅发布 arm64，不包含 Intel 版本。
 
-- [x] 菜单栏常驻与控制面板重新打开
-- [x] 可自定义全局快捷键（默认 `Control + Option + M`）
-- [x] 指针、缩放模式、目标屏及上次源窗口配置持久化
-- [x] 授权前权限引导
-- [x] 授权后五步聚光灯教学（含 Mac 独有的单击窗口热切换）
-- [x] 菜单栏重新显示使用教学
-
-## 已知待办
-
-- 尚无应用图标。
+不要建议用户全局关闭 Gatekeeper。完整、安全的处理方式见 [macOS 安装指南](INSTALL.md)。
