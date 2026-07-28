@@ -8,6 +8,7 @@ x86/
 [Ww][Ii][Nn]32/
 publish/
 artifacts/
+mac/.build/
 *.dll
 *.exe
 *.pdb

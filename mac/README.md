@@ -1,6 +1,6 @@
 # MirrorCast for macOS
 
-Windows 版的 macOS 移植。**当前进度：M1（核心链路验证中，尚不可用于生产）。**
+Windows 版的 macOS 移植。**当前进度：M4（封装与分发）。**
 
 ## 与 Windows 版的根本差异
 
@@ -18,10 +18,15 @@ Windows 版基于 DWM Thumbnail —— 告诉系统合成器「把窗口 X 画�
 ## 环境要求
 
 - macOS 13 (Ventura) 或更高
-- Xcode Command Line Tools（`xcode-select --install`）
 - 至少两台显示器，且处于**扩展**模式
 
+## 下载与安装
+
+由于当前版本没有使用付费的 Apple Developer ID 签名和公证，首次打开时会出现 macOS 安全提示。请按照 [macOS 安装指南](INSTALL.md) 完成安装、安全确认和屏幕录制授权。
+
 ## 构建与运行
+
+从源码构建需要 Xcode Command Line Tools（`xcode-select --install`）。
 
 ```bash
 cd mac
@@ -54,12 +59,23 @@ macOS 不授权就完全读不到窗口画面。首次打开会看到授权提�
 - [x] 副屏无边框全屏显示（`IOSurface` → `CALayer`）
 - [x] 源窗口关闭时自动停止
 
-M2 起：三种缩放模式、源窗口尺寸变化跟随、副屏拔出处理。
-M3 起：菜单栏常驻、全局快捷键、配置持久化、首次引导。
+## M2 范围
+
+- [x] 三种缩放模式（适应、填满、拉伸）
+- [x] 捕获分辨率按源窗口所在屏的 backing scale 配置
+- [x] 源窗口尺寸变化跟随
+- [x] 镜像期间直接切换源窗口
+- [x] 副屏拔出时自动停止
+
+## M3 范围
+
+- [x] 菜单栏常驻与控制面板重新打开
+- [x] 可自定义全局快捷键（默认 `Control + Option + M`）
+- [x] 指针、缩放模式、目标屏及上次源窗口配置持久化
+- [x] 授权前权限引导
+- [x] 授权后五步聚光灯教学（含 Mac 独有的单击窗口热切换）
+- [x] 菜单栏重新显示使用教学
 
 ## 已知待办
 
-- 源窗口改变大小后，捕获配置不会跟着更新（画面会被缩放，暂不影响可用性）。
-  `SCStream.updateConfiguration` 需要 macOS 14+，兼容 13 需重启流，留到 M2。
-- 尚未处理副屏被拔出的情况。
 - 尚无应用图标。

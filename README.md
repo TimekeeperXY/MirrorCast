@@ -76,6 +76,8 @@ Windows 11 原生 **Mica 云母材质**背景（Win10 自动降级为亚克力�
 
 ## 安装
 
+> macOS 版本请参阅 [MirrorCast macOS 安装指南](mac/INSTALL.md)，其中包含未公证版本的首次打开和屏幕录制授权步骤。
+
 ### 方式一：下载现成的（推荐）
 
 前往 [Releases](../../releases) 下载最新的 `MirrorCast.exe`，**双击即可运行**。
