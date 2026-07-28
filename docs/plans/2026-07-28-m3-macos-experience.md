@@ -44,11 +44,14 @@
 - Modify: `mac/Sources/MirrorCast/AppDelegate.swift`
 
 **Steps:**
-1. Register `Control + Option + M` with Carbon `RegisterEventHotKey`.
-2. Route the callback to start/stop mirroring.
-3. When setup is incomplete, show the panel and expose the current status message.
-4. Unregister the hotkey during termination.
-5. Build and verify registration succeeds without Accessibility permission.
+1. Register the persisted shortcut, defaulting to `Control + Option + M`, with Carbon `RegisterEventHotKey`.
+2. Add an AppKit-backed shortcut recorder that accepts modified key combinations and supports Escape to cancel.
+3. Reject conflicts without replacing the currently working shortcut.
+4. Persist the accepted key code, modifiers, and display label.
+5. Route the callback to start/stop mirroring and keep walkthrough text synchronized.
+6. When setup is incomplete, show the panel and expose the current status message.
+7. Unregister the hotkey during termination.
+8. Build and verify registration succeeds without Accessibility permission.
 
 ### Task 4: Add First-Run Guidance
 
