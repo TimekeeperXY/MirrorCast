@@ -20,6 +20,9 @@ final class CaptureEngine: NSObject {
     var onStopped: (@MainActor (Error?) -> Void)?
 
     private var stream: SCStream?
+    private var configuredWidth = 0
+    private var configuredHeight = 0
+    private var configuredShowsCursor = true
     private let sampleQueue = DispatchQueue(label: "com.xiaoyang.mirrorcast.capture",
                                             qos: .userInitiated)
 
@@ -32,28 +35,62 @@ final class CaptureEngine: NSObject {
         // which is what makes this a window mirror rather than a screen mirror.
         let filter = SCContentFilter(desktopIndependentWindow: window)
 
-        let config = SCStreamConfiguration()
-        // Capture at backing-store resolution so text stays sharp on Retina displays.
-        config.width = max(2, Int(window.frame.width * scale))
-        config.height = max(2, Int(window.frame.height * scale))
-        config.pixelFormat = kCVPixelFormatType_32BGRA
-        // DWM thumbnails on Windows never include the pointer — we had to synthesise one.
-        // ScreenCaptureKit gives it to us for free.
-        config.showsCursor = showsCursor
-        config.minimumFrameInterval = CMTime(value: 1, timescale: 60)
-        config.queueDepth = 5
-        config.scalesToFit = true
+        let config = makeConfiguration(window: window,
+                                       showsCursor: showsCursor,
+                                       scale: scale)
 
         let stream = SCStream(filter: filter, configuration: config, delegate: self)
         try stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: sampleQueue)
         try await stream.startCapture()
         self.stream = stream
+        remember(config)
+    }
+
+    func updateConfiguration(window: SCWindow,
+                             showsCursor: Bool,
+                             scale: CGFloat) async throws {
+        guard let stream else { return }
+
+        let config = makeConfiguration(window: window,
+                                       showsCursor: showsCursor,
+                                       scale: scale)
+        guard config.width != configuredWidth
+                || config.height != configuredHeight
+                || config.showsCursor != configuredShowsCursor
+        else { return }
+
+        try await stream.updateConfiguration(config)
+        remember(config)
     }
 
     func stop() async {
         guard let stream else { return }
         self.stream = nil
+        configuredWidth = 0
+        configuredHeight = 0
         try? await stream.stopCapture()
+    }
+
+    private func makeConfiguration(window: SCWindow,
+                                   showsCursor: Bool,
+                                   scale: CGFloat) -> SCStreamConfiguration {
+        let config = SCStreamConfiguration()
+        // The source screen owns the window's backing store. Using the target screen's
+        // scale here produces the wrong pixel dimensions when the displays have different DPI.
+        config.width = max(2, Int(window.frame.width * scale))
+        config.height = max(2, Int(window.frame.height * scale))
+        config.pixelFormat = kCVPixelFormatType_32BGRA
+        config.showsCursor = showsCursor
+        config.minimumFrameInterval = CMTime(value: 1, timescale: 60)
+        config.queueDepth = 5
+        config.scalesToFit = true
+        return config
+    }
+
+    private func remember(_ config: SCStreamConfiguration) {
+        configuredWidth = config.width
+        configuredHeight = config.height
+        configuredShowsCursor = config.showsCursor
     }
 }
 
@@ -95,6 +132,7 @@ extension CaptureEngine: SCStreamDelegate {
 
     func stream(_ stream: SCStream, didStopWithError error: Error) {
         Task { @MainActor [weak self] in
+            guard self?.stream === stream else { return }
             self?.stream = nil
             self?.onStopped?(error)
         }

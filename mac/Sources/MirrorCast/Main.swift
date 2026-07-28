@@ -18,7 +18,8 @@ enum MirrorCastMain {
         let app = NSApplication.shared
         let delegate = AppDelegate()
         app.delegate = delegate
-        app.setActivationPolicy(.regular)
+        // MirrorCast remains available from the menu bar after its control panel closes.
+        app.setActivationPolicy(.accessory)
         app.run()
 
         // Keeps the delegate alive for the whole run loop; without this the local

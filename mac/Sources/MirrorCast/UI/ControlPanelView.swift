@@ -5,6 +5,29 @@ struct ControlPanelView: View {
     @ObservedObject var state: AppState
 
     var body: some View {
+        Group {
+            if state.showsPermissionOnboarding {
+                PermissionOnboardingView(
+                    onRequestPermission: state.requestPermission,
+                    onRecheckPermission: {
+                        state.refreshPermission()
+                        Task { await state.refreshSources() }
+                    })
+            } else {
+                controlPanel
+            }
+        }
+        .frame(minWidth: 420, minHeight: 620)
+        .task {
+            state.refreshPermission()
+            await state.refreshSources()
+        }
+        .onChange(of: state.selectedWindowID) { _ in
+            Task { await state.switchToSelectedWindow() }
+        }
+    }
+
+    private var controlPanel: some View {
         VStack(alignment: .leading, spacing: 14) {
             header
 
@@ -13,6 +36,11 @@ struct ControlPanelView: View {
             } else {
                 windowSection
                 screenSection
+                scaleModePicker
+                HotKeySettingView(
+                    combination: state.hotKey,
+                    onChange: state.updateHotKey,
+                    onRestoreDefault: state.restoreDefaultHotKey)
                 Toggle("在副屏显示鼠标指针", isOn: $state.showsCursor)
                     .disabled(state.isMirroring)
             }
@@ -26,13 +54,20 @@ struct ControlPanelView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            actionButton
+            actionSection
         }
         .padding(18)
-        .frame(minWidth: 420, minHeight: 520)
-        .task {
-            state.refreshPermission()
-            await state.refreshSources()
+        .overlayPreferenceValue(WalkthroughFramePreferenceKey.self) { anchors in
+            GeometryReader { proxy in
+                if let step = state.walkthroughStep {
+                    WalkthroughOverlay(
+                        step: step,
+                        hotKeyName: state.hotKey.displayName,
+                        targetFrame: anchors[step.target].map { proxy[$0] },
+                        onNext: state.advanceWalkthrough,
+                        onSkip: state.finishWalkthrough)
+                }
+            }
         }
     }
 
@@ -73,11 +108,12 @@ struct ControlPanelView: View {
     private var windowSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text("选择要镜像的窗口").font(.subheadline).foregroundStyle(.secondary)
+                Text("第一步：选择要镜像的窗口")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
                 Spacer()
                 Button("刷新") { Task { await state.refreshSources() } }
                     .controlSize(.small)
-                    .disabled(state.isMirroring)
             }
 
             List(state.windows, selection: $state.selectedWindowID) { item in
@@ -89,13 +125,15 @@ struct ControlPanelView: View {
                 }
             }
             .frame(height: 200)
-            .disabled(state.isMirroring)
         }
+        .walkthroughTarget(.sourceWindow)
     }
 
     private var screenSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("目标显示器").font(.subheadline).foregroundStyle(.secondary)
+            Text("第二步：选择目标显示器")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
 
             if state.screens.count <= 1 {
                 Text("仅检测到一个显示器，请接上副屏并确认处于「扩展」模式")
@@ -113,24 +151,48 @@ struct ControlPanelView: View {
             .frame(height: 80)
             .disabled(state.isMirroring)
         }
+        .walkthroughTarget(.targetDisplay)
     }
 
-    private var actionButton: some View {
-        Button {
-            Task {
-                if state.isMirroring {
-                    await state.stopMirroring()
-                } else {
-                    await state.startMirroring()
+    private var actionSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("第四步：开始镜像")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            Button {
+                Task {
+                    if state.isMirroring {
+                        await state.stopMirroring()
+                    } else {
+                        await state.startMirroring()
+                    }
+                }
+            } label: {
+                Text(state.isMirroring ? "停止镜像" : "开始镜像")
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+            }
+            .controlSize(.large)
+            .buttonStyle(.borderedProminent)
+            .disabled(!state.isMirroring && !state.canStart)
+        }
+        .walkthroughTarget(.startMirror)
+    }
+
+    private var scaleModePicker: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("第三步：选择缩放模式")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Picker("缩放模式", selection: $state.scaleMode) {
+                ForEach(MirrorScaleMode.allCases) { mode in
+                    Text(mode.title).tag(mode)
                 }
             }
-        } label: {
-            Text(state.isMirroring ? "停止镜像" : "开始镜像")
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 6)
+            .labelsHidden()
+            .pickerStyle(.segmented)
         }
-        .controlSize(.large)
-        .buttonStyle(.borderedProminent)
-        .disabled(!state.isMirroring && !state.canStart)
+        .walkthroughTarget(.scaleMode)
     }
 }
