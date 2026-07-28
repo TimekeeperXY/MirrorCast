@@ -58,10 +58,12 @@
 - Modify: `mac/Sources/MirrorCast/AppState.swift`
 
 **Steps:**
-1. Show a compact three-step guide on first launch.
-2. Add completion and dismiss actions backed by persisted state.
-3. Let the menu bar reopen the guide later.
-4. Verify text fits in the existing 440-point control panel.
+1. Before authorization, show a dedicated screen-recording permission page.
+2. After authorization and restart, show a Windows-style spotlight walkthrough over the control panel.
+3. Walk through source window, target display, scale mode, start mirroring, and Mac-only click-to-switch behavior.
+4. Persist completion only after finishing or skipping the walkthrough.
+5. Let the menu bar replay the walkthrough later.
+6. Verify the spotlight and teaching card fit in the existing 440-point control panel.
 
 ### Task 5: Final Verification and Documentation
 
