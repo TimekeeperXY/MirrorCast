@@ -1,0 +1,21 @@
+# Keep line endings sane across the Windows and macOS halves of this repo.
+* text=auto
+
+# Shell scripts MUST stay LF: a CRLF shebang makes macOS/Linux fail with
+# "bad interpreter: /bin/bash^M".
+*.sh text eol=lf
+
+# Swift/plist sources are consumed by macOS toolchains — keep them LF too.
+*.swift text eol=lf
+*.plist text eol=lf
+
+# Windows-side sources stay CRLF, matching Visual Studio conventions.
+*.cs text eol=crlf
+*.xaml text eol=crlf
+*.csproj text eol=crlf
+*.manifest text eol=crlf
+
+# Binary assets must never be munged.
+*.ico binary
+*.png binary
+*.icns binary
