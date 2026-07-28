@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>MirrorCast</string>
+    <key>CFBundleDisplayName</key>
+    <string>MirrorCast</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.xiaoyang.mirrorcast</string>
+    <key>CFBundleExecutable</key>
+    <string>MirrorCast</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.1.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>13.0</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <!--
+      M1 keeps the Dock icon so the app is easy to launch and quit while testing.
+      The menu-bar-only mode (LSUIElement = true) lands in M3 together with the
+      status item, matching the Windows tray behaviour.
+    -->
+    <key>LSUIElement</key>
+    <false/>
+</dict>
+</plist>
