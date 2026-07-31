@@ -1,0 +1,52 @@
+name: macOS Intel
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "mac/**"
+      - ".github/workflows/macos-intel.yml"
+  pull_request:
+    paths:
+      - "mac/**"
+      - ".github/workflows/macos-intel.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-intel:
+    name: Build Intel DMG
+    runs-on: macos-15-intel
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          uname -m
+          sw_vers
+          swift --version
+
+      - name: Build and package x86_64
+        working-directory: mac
+        run: ./package-dmg.sh --arch x86_64
+
+      - name: Verify packaged architecture
+        working-directory: mac
+        run: |
+          lipo -archs .build/bundle/MirrorCast.app/Contents/MacOS/MirrorCast
+          lipo -verify_arch x86_64 .build/bundle/MirrorCast.app/Contents/MacOS/MirrorCast
+
+      - name: Upload Intel DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: MirrorCast-macOS-x86_64
+          path: |
+            mac/dist/MirrorCast-*-macOS-x86_64.dmg
+            mac/dist/MirrorCast-*-macOS-x86_64.dmg.sha256
+          if-no-files-found: error

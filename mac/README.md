@@ -4,12 +4,12 @@ MirrorCast 的 macOS 版本使用 ScreenCaptureKit 捕获单个窗口，通过 I
 
 - 用户安装与权限处理：[macOS 安装指南](INSTALL.md)
 - 项目总览与使用说明：[根 README](../README.md)
-- 最新 Apple Silicon DMG：[MirrorCast v1.2.0](https://github.com/TimekeeperXY/MirrorCast/releases/tag/v1.2.0)
+- 最新正式版 DMG：[MirrorCast v1.2.0（Apple Silicon）](https://github.com/TimekeeperXY/MirrorCast/releases/tag/v1.2.0)
 
 ## 系统要求
 
 - macOS 13 Ventura 或更高版本
-- Apple Silicon Mac
+- Apple Silicon Mac 或 Intel Mac
 - 至少两块显示器，并处于扩展模式
 
 从源码构建还需要 Xcode Command Line Tools：
@@ -52,7 +52,15 @@ mac/.build/bundle/MirrorCast.app
 ./build.sh --run
 ```
 
-`build.sh` 会进行 Release 编译、组装 `.app` 并使用 ad-hoc 签名。
+按目标架构构建：
+
+```bash
+./build.sh --arch arm64
+./build.sh --arch x86_64
+./build.sh --arch universal
+```
+
+`build.sh` 会进行 Release 编译、组装 `.app` 并使用 ad-hoc 签名。`universal` 会分别编译 arm64 和 x86_64，再用 `lipo` 合成为 Universal 2 应用。
 
 ## 打包 DMG
 
@@ -61,11 +69,19 @@ cd mac
 ./package-dmg.sh
 ```
 
+默认生成当前 Mac 架构的 DMG。指定架构：
+
+```bash
+./package-dmg.sh --arch x86_64
+./package-dmg.sh --arch arm64
+./package-dmg.sh --arch universal
+```
+
 脚本会依次执行：
 
 1. Release 构建
 2. App 签名和 plist 校验
-3. arm64 架构检查
+3. 目标架构检查
 4. 创建包含 `MirrorCast.app` 和 Applications 快捷方式的压缩 DMG
 5. DMG 完整性检查
 6. 生成 SHA-256 文件
@@ -73,9 +89,13 @@ cd mac
 产物位于：
 
 ```text
-mac/dist/MirrorCast-v<版本>-macOS-arm64.dmg
-mac/dist/MirrorCast-v<版本>-macOS-arm64.dmg.sha256
+mac/dist/MirrorCast-v<版本>-macOS-<架构>.dmg
+mac/dist/MirrorCast-v<版本>-macOS-<架构>.dmg.sha256
 ```
+
+Intel 架构名为 `x86_64`，Apple Silicon 为 `arm64`，双架构包为 `universal`。
+
+每次修改 `mac/` 后，GitHub Actions 会在真实的 Intel macOS runner 上编译并打包 x86_64 DMG，避免只在 Apple Silicon 的交叉编译环境中验证。
 
 ## 实现结构
 
@@ -109,6 +129,6 @@ macOS 没有与 DWM Thumbnail 对等的公开 API，因此资源占用会高于 
 - App 使用 ad-hoc 签名，未经过 Apple 公证。
 - 首次启动需要用户通过 Finder 右键“打开”或系统设置确认。
 - 更新不同构建后，macOS 可能要求重新授予屏幕录制权限。
-- 当前官方 DMG 仅发布 arm64，不包含 Intel 版本。
+- v1.2.0 官方 DMG 仅发布 arm64；源码和持续集成已经支持 Intel x86_64。
 
 不要建议用户全局关闭 Gatekeeper。完整、安全的处理方式见 [macOS 安装指南](INSTALL.md)。

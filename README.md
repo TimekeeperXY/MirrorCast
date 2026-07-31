@@ -46,8 +46,8 @@ MirrorCast 会把选中的窗口留在主屏原位，同时将它实时显示在
 | | Windows | macOS |
 |---|---|---|
 | 系统要求 | Windows 10 1809+ / Windows 11 | macOS 13+ |
-| 发布架构 | x64 | Apple Silicon arm64 |
-| 安装包 | 单文件 `MirrorCast.exe` | `MirrorCast-*-macOS-arm64.dmg` |
+| 支持架构 | x64 | Apple Silicon arm64、Intel x86_64 |
+| 安装包 | 单文件 `MirrorCast.exe` | 按架构提供的 `MirrorCast-*-macOS-*.dmg` |
 | 镜像技术 | DWM Thumbnail | ScreenCaptureKit + IOSurface |
 | 后台入口 | 系统托盘 | 菜单栏 |
 | 默认快捷键 | `Ctrl + Alt + M` | `Control + Option + M` |
@@ -67,7 +67,7 @@ MirrorCast 是便携应用。退出程序后删除 `MirrorCast.exe` 即可卸载
 
 ### macOS
 
-当前 DMG 支持 Apple Silicon Mac，包括 M1、M2、M3、M4 及后续芯片。
+当前 v1.2.0 DMG 支持 Apple Silicon Mac，包括 M1、M2、M3、M4 及后续芯片。Intel 版已在源码和自动构建中支持，将从后续版本开始提供独立 DMG。
 
 1. 下载 [MirrorCast v1.2.0 macOS DMG](https://github.com/TimekeeperXY/MirrorCast/releases/download/v1.2.0/MirrorCast-v1.2.0-macOS-arm64.dmg)。
 2. 双击 DMG，将 `MirrorCast.app` 拖到 `Applications`。
@@ -133,7 +133,7 @@ xattr -dr com.apple.quarantine "/Applications/MirrorCast.app"
 
 ### macOS
 
-- 当前官方 DMG 仅提供 Apple Silicon arm64 版本。
+- v1.2.0 官方 DMG 仅提供 Apple Silicon arm64 版本；Intel x86_64 支持将在后续版本发布。
 - 首次运行必须授予屏幕录制权限，并在授权后重启应用。
 - 因未使用 Apple Developer ID，不同版本更新后可能需要重新授权。
 
@@ -165,10 +165,18 @@ cd MirrorCast/mac
 ./build.sh --run
 ```
 
-生成 Apple Silicon DMG：
+生成当前 Mac 架构的 DMG：
 
 ```bash
 ./package-dmg.sh
+```
+
+生成 Intel、Apple Silicon 或 Universal 2 DMG：
+
+```bash
+./package-dmg.sh --arch x86_64
+./package-dmg.sh --arch arm64
+./package-dmg.sh --arch universal
 ```
 
 更多实现和构建信息请参阅 [macOS 开发文档](mac/README.md)。
