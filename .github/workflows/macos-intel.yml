@@ -40,7 +40,7 @@ jobs:
         working-directory: mac
         run: |
           lipo -archs .build/bundle/MirrorCast.app/Contents/MacOS/MirrorCast
-          lipo -verify_arch x86_64 .build/bundle/MirrorCast.app/Contents/MacOS/MirrorCast
+          lipo .build/bundle/MirrorCast.app/Contents/MacOS/MirrorCast -verify_arch x86_64
 
       - name: Upload Intel DMG
         uses: actions/upload-artifact@v4

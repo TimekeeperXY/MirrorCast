@@ -68,7 +68,7 @@ case "$ARCH" in
         ARCH_LABEL="$ARCH"
         ;;
     universal)
-        if ! lipo -verify_arch arm64 x86_64 "$APP_PATH/Contents/MacOS/$APP_NAME"; then
+        if ! lipo "$APP_PATH/Contents/MacOS/$APP_NAME" -verify_arch arm64 x86_64; then
             echo "Expected a Universal 2 executable, found: $ARCHS" >&2
             exit 1
         fi
