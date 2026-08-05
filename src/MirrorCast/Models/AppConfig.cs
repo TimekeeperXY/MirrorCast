@@ -20,6 +20,7 @@ public class AppConfig
     public string ScreenZoomHotkey { get; set; } = "Ctrl+Alt+Shift+Z";
     public string MagnifierHotkey { get; set; } = "Ctrl+Alt+Shift+L";
     public string SpotlightHotkey { get; set; } = "Ctrl+Alt+Shift+P";
+    public string AnnotationHotkey { get; set; } = "Ctrl+Alt+Shift+A";
     public List<RecentWindowEntry> RecentWindows { get; set; } = new();
 }
 

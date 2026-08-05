@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Threading;
+using MirrorCast.Annotations;
 using MirrorCast.Interop;
 using MirrorCast.Models;
 
@@ -14,6 +15,8 @@ public class ThumbnailController
     private CursorOverlayWindow? _cursorWindow;
     private MagnifierWindow? _magnifierWindow;
     private PresentationOverlayWindow? _presentationOverlay;
+    private AnnotationOverlayWindow? _annotationWindow;
+    private readonly AnnotationDocument _annotationDocument = new();
     private IntPtr _destHwnd;
     private DispatcherTimer? _timer;
     private DispatcherTimer? _cursorTimer;
@@ -27,6 +30,7 @@ public class ThumbnailController
     private bool _screenZoomEnabled;
     private bool _magnifierEnabled;
     private bool _spotlightEnabled;
+    private bool _annotationEnabled;
     private bool _pointerSourceValid;
     private double _pointerSourceX;
     private double _pointerSourceY;
@@ -34,11 +38,13 @@ public class ThumbnailController
     public event Action? SourceClosed;
     public event Action? TargetMonitorLost;
     public event Action? StoppedByUser;
+    public event Action<bool>? AnnotationStateChanged;
 
     public bool IsRunning => _thumbnail != IntPtr.Zero;
     public bool IsScreenZoomEnabled => _screenZoomEnabled;
     public bool IsMagnifierEnabled => _magnifierEnabled;
     public bool IsSpotlightEnabled => _spotlightEnabled;
+    public bool IsAnnotationEnabled => _annotationEnabled;
 
     public void Start(IntPtr sourceHwnd, MonitorInfo target, MirrorOptions options)
     {
@@ -53,7 +59,9 @@ public class ThumbnailController
         _screenZoomEnabled = false;
         _magnifierEnabled = false;
         _spotlightEnabled = false;
+        _annotationEnabled = false;
         _pointerSourceValid = false;
+        _annotationDocument.Reset();
 
         _mirrorWindow = new MirrorWindow
         {
@@ -91,6 +99,7 @@ public class ThumbnailController
         _presentationOverlay = new PresentationOverlayWindow();
         _presentationOverlay.Show();
         _presentationOverlay.SetMonitor(target);
+        _presentationOverlay.SetAnnotationDocument(_annotationDocument);
         _presentationOverlay.ClearEffects();
 
         // Must be a separate top-level window because DWM draws over the mirror window.
@@ -108,6 +117,7 @@ public class ThumbnailController
         {
             ResyncIfSourceSizeChanged();
             UpdatePresentationEffects();
+            UpdateAnnotationOverlays();
             UpdateCursorOverlay();
         };
         _cursorTimer.Start();
@@ -140,6 +150,7 @@ public class ThumbnailController
         _sourceHwnd = newSourceHwnd;
         _wasMinimized = false;
         _pointerSourceValid = false;
+        _annotationDocument.Reset();
         _mirrorWindow.SetMinimizedOverlay(false);
 
         ApplyProperties();
@@ -187,6 +198,61 @@ public class ThumbnailController
         if (!_spotlightEnabled && !_magnifierEnabled)
             _presentationOverlay?.ClearEffects();
         return _spotlightEnabled;
+    }
+
+    public bool ToggleAnnotations()
+    {
+        if (!IsRunning) return false;
+
+        if (_annotationEnabled)
+        {
+            DisableAnnotations();
+            return false;
+        }
+
+        if (User32.IsIconic(_sourceHwnd) ||
+            !TryGetSourceScreenRect(_sourceHwnd, _options.ClientAreaOnly, out var sourceBounds))
+            return false;
+
+        _annotationWindow = new AnnotationOverlayWindow();
+        _annotationWindow.SetDocument(_annotationDocument);
+        _annotationWindow.ExitRequested += DisableAnnotations;
+        _annotationWindow.Closed += AnnotationWindow_Closed;
+        _annotationWindow.Show();
+        _annotationWindow.SetBounds(sourceBounds);
+        _annotationWindow.Activate();
+        _annotationEnabled = true;
+        AnnotationStateChanged?.Invoke(true);
+        return true;
+    }
+
+    private void DisableAnnotations()
+    {
+        if (_annotationWindow != null)
+        {
+            _annotationWindow.ExitRequested -= DisableAnnotations;
+            _annotationWindow.Closed -= AnnotationWindow_Closed;
+            _annotationWindow.Close();
+            _annotationWindow = null;
+        }
+
+        if (!_annotationEnabled) return;
+        _annotationEnabled = false;
+        AnnotationStateChanged?.Invoke(false);
+    }
+
+    private void AnnotationWindow_Closed(object? sender, EventArgs e)
+    {
+        if (_annotationWindow != null)
+        {
+            _annotationWindow.ExitRequested -= DisableAnnotations;
+            _annotationWindow.Closed -= AnnotationWindow_Closed;
+            _annotationWindow = null;
+        }
+
+        if (!_annotationEnabled) return;
+        _annotationEnabled = false;
+        AnnotationStateChanged?.Invoke(false);
     }
 
     private void Tick()
@@ -381,6 +447,39 @@ public class ThumbnailController
             magnifierBounds);
     }
 
+    private void UpdateAnnotationOverlays()
+    {
+        if (_targetMonitor == null || _presentationOverlay == null || _lastSourceSize.cx <= 0 || _lastSourceSize.cy <= 0)
+            return;
+
+        if (_annotationEnabled && _annotationWindow != null)
+        {
+            if (User32.IsIconic(_sourceHwnd) ||
+                !TryGetSourceScreenRect(_sourceHwnd, _options.ClientAreaOnly, out var sourceBounds))
+            {
+                DisableAnnotations();
+            }
+            else
+            {
+                _annotationWindow.SetBounds(sourceBounds);
+            }
+        }
+
+        var destination = new RECT
+        {
+            Left = _targetMonitor.Bounds.Left + _lastDestRect.Left,
+            Top = _targetMonitor.Bounds.Top + _lastDestRect.Top,
+            Right = _targetMonitor.Bounds.Left + _lastDestRect.Right,
+            Bottom = _targetMonitor.Bounds.Top + _lastDestRect.Bottom
+        };
+        var sourceView = new Rect(
+            (double)_lastSourceCrop.Left / _lastSourceSize.cx,
+            (double)_lastSourceCrop.Top / _lastSourceSize.cy,
+            (double)_lastSourceCrop.Width / _lastSourceSize.cx,
+            (double)_lastSourceCrop.Height / _lastSourceSize.cy);
+        _presentationOverlay.UpdateAnnotationViewport(destination, sourceView, !_annotationDocument.IsEmpty);
+    }
+
     private void UpdateCursorOverlay()
     {
         if (_cursorWindow == null || _targetMonitor == null) return;
@@ -554,6 +653,8 @@ public class ThumbnailController
 
         _cursorWindow?.Close();
         _cursorWindow = null;
+        DisableAnnotations();
+        _annotationDocument.Reset();
         _presentationOverlay?.Close();
         _presentationOverlay = null;
         _magnifierWindow?.Close();
@@ -566,6 +667,7 @@ public class ThumbnailController
         _screenZoomEnabled = false;
         _magnifierEnabled = false;
         _spotlightEnabled = false;
+        _annotationEnabled = false;
         _pointerSourceValid = false;
     }
 }

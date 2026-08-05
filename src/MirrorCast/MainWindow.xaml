@@ -174,6 +174,7 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Text="屏幕放大" VerticalAlignment="Center" Margin="0,0,12,8"/>
                         <Button Grid.Row="0" Grid.Column="1" Height="30" Margin="0,0,0,8"
@@ -185,10 +186,15 @@
                                 Content="{Binding MagnifierHotkeyDisplay}"
                                 Tag="{x:Static models:HotkeyAction.Magnifier}"
                                 Click="HotkeyButton_Click"/>
-                        <TextBlock Grid.Row="2" Text="指针聚光灯" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                        <Button Grid.Row="2" Grid.Column="1" Height="30"
+                        <TextBlock Grid.Row="2" Text="指针聚光灯" VerticalAlignment="Center" Margin="0,0,12,8"/>
+                        <Button Grid.Row="2" Grid.Column="1" Height="30" Margin="0,0,0,8"
                                 Content="{Binding SpotlightHotkeyDisplay}"
                                 Tag="{x:Static models:HotkeyAction.Spotlight}"
+                                Click="HotkeyButton_Click"/>
+                        <TextBlock Grid.Row="3" Text="屏幕标注" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                        <Button Grid.Row="3" Grid.Column="1" Height="30"
+                                Content="{Binding AnnotationHotkeyDisplay}"
+                                Tag="{x:Static models:HotkeyAction.Annotation}"
                                 Click="HotkeyButton_Click"/>
                     </Grid>
                 </StackPanel>
@@ -227,8 +233,10 @@
                             Command="{Binding ToggleScreenZoomCommand}"/>
                     <Button Content="{Binding MagnifierButtonText}" Height="34" Margin="0,0,0,8"
                             Command="{Binding ToggleMagnifierCommand}"/>
-                    <Button Content="{Binding SpotlightButtonText}" Height="34"
+                    <Button Content="{Binding SpotlightButtonText}" Height="34" Margin="0,0,0,8"
                             Command="{Binding ToggleSpotlightCommand}"/>
+                    <Button Content="{Binding AnnotationButtonText}" Height="34"
+                            Command="{Binding ToggleAnnotationCommand}"/>
                 </StackPanel>
             </Border>
         </StackPanel>

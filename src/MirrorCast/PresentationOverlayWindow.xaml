@@ -1,6 +1,7 @@
 <Window x:Class="MirrorCast.PresentationOverlayWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:annotations="clr-namespace:MirrorCast.Annotations"
         Title="MirrorCastPresentationOverlay"
         WindowStyle="None"
         ResizeMode="NoResize"
@@ -13,6 +14,11 @@
         Left="-32000" Top="-32000" Width="200" Height="200">
     <Grid>
         <Path x:Name="SpotlightDimmer" Fill="#B8000000" Visibility="Collapsed"/>
+        <Canvas IsHitTestVisible="False">
+            <annotations:AnnotationCanvas x:Name="ProjectedAnnotations"
+                                          IsHitTestVisible="False"
+                                          Visibility="Collapsed"/>
+        </Canvas>
         <Canvas IsHitTestVisible="False">
             <Border x:Name="MagnifierFrame"
                     Visibility="Collapsed"

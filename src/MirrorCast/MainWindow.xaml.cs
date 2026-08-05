@@ -84,6 +84,7 @@ public partial class MainWindow : Window
             HotkeyAction.ScreenZoom => ViewModel.ToggleScreenZoom,
             HotkeyAction.Magnifier => ViewModel.ToggleMagnifier,
             HotkeyAction.Spotlight => ViewModel.ToggleSpotlight,
+            HotkeyAction.Annotation => ViewModel.ToggleAnnotations,
             _ => throw new ArgumentOutOfRangeException(nameof(action))
         };
 

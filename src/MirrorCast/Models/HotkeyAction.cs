@@ -5,5 +5,6 @@ public enum HotkeyAction
     Mirror,
     ScreenZoom,
     Magnifier,
-    Spotlight
+    Spotlight,
+    Annotation
 }

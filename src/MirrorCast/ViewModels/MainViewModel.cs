@@ -152,6 +152,20 @@ public class MainViewModel : ViewModelBase
         }
     }
 
+    private string _annotationHotkey = "Ctrl+Alt+Shift+A";
+    public string AnnotationHotkey
+    {
+        get => _annotationHotkey;
+        set
+        {
+            if (SetField(ref _annotationHotkey, value))
+            {
+                OnPropertyChanged(nameof(AnnotationHotkeyDisplay));
+                OnPropertyChanged(nameof(AnnotationButtonText));
+            }
+        }
+    }
+
     private HotkeyAction? _capturingHotkeyAction;
     public HotkeyAction? CapturingHotkeyAction
     {
@@ -165,6 +179,7 @@ public class MainViewModel : ViewModelBase
                 OnPropertyChanged(nameof(ScreenZoomHotkeyDisplay));
                 OnPropertyChanged(nameof(MagnifierHotkeyDisplay));
                 OnPropertyChanged(nameof(SpotlightHotkeyDisplay));
+                OnPropertyChanged(nameof(AnnotationHotkeyDisplay));
             }
         }
     }
@@ -174,6 +189,7 @@ public class MainViewModel : ViewModelBase
     public string ScreenZoomHotkeyDisplay => CapturingHotkeyAction == HotkeyAction.ScreenZoom ? "请按快捷键…" : ScreenZoomHotkey;
     public string MagnifierHotkeyDisplay => CapturingHotkeyAction == HotkeyAction.Magnifier ? "请按快捷键…" : MagnifierHotkey;
     public string SpotlightHotkeyDisplay => CapturingHotkeyAction == HotkeyAction.Spotlight ? "请按快捷键…" : SpotlightHotkey;
+    public string AnnotationHotkeyDisplay => CapturingHotkeyAction == HotkeyAction.Annotation ? "请按快捷键…" : AnnotationHotkey;
     public string StartButtonText => $"开始镜像  ({ToggleHotkey})";
     public string StopButtonText => $"停止镜像  ({ToggleHotkey})";
 
@@ -224,6 +240,7 @@ public class MainViewModel : ViewModelBase
         HotkeyAction.ScreenZoom => ScreenZoomHotkey,
         HotkeyAction.Magnifier => MagnifierHotkey,
         HotkeyAction.Spotlight => SpotlightHotkey,
+        HotkeyAction.Annotation => AnnotationHotkey,
         _ => throw new ArgumentOutOfRangeException(nameof(action))
     };
 
@@ -235,6 +252,7 @@ public class MainViewModel : ViewModelBase
             case HotkeyAction.ScreenZoom: ScreenZoomHotkey = hotkey; break;
             case HotkeyAction.Magnifier: MagnifierHotkey = hotkey; break;
             case HotkeyAction.Spotlight: SpotlightHotkey = hotkey; break;
+            case HotkeyAction.Annotation: AnnotationHotkey = hotkey; break;
         }
     }
 
@@ -313,9 +331,21 @@ public class MainViewModel : ViewModelBase
         }
     }
 
+    private bool _isAnnotationActive;
+    public bool IsAnnotationActive
+    {
+        get => _isAnnotationActive;
+        private set
+        {
+            if (SetField(ref _isAnnotationActive, value))
+                OnPropertyChanged(nameof(AnnotationButtonText));
+        }
+    }
+
     public string ScreenZoomButtonText => $"{(IsScreenZoomActive ? "关闭" : "开启")}屏幕放大  ({ScreenZoomHotkey})";
     public string MagnifierButtonText => $"{(IsMagnifierActive ? "关闭" : "开启")}指针放大镜  ({MagnifierHotkey})";
     public string SpotlightButtonText => $"{(IsSpotlightActive ? "关闭" : "开启")}指针聚光灯  ({SpotlightHotkey})";
+    public string AnnotationButtonText => $"{(IsAnnotationActive ? "退出" : "进入")}屏幕标注  ({AnnotationHotkey})";
 
     private bool _canStart = true;
     public bool CanStart
@@ -332,6 +362,7 @@ public class MainViewModel : ViewModelBase
     public RelayCommand ToggleScreenZoomCommand { get; }
     public RelayCommand ToggleMagnifierCommand { get; }
     public RelayCommand ToggleSpotlightCommand { get; }
+    public RelayCommand ToggleAnnotationCommand { get; }
 
     public event Action? ShowMainWindowRequested;
     public event Action<string>? Notify;
@@ -353,10 +384,13 @@ public class MainViewModel : ViewModelBase
         ToggleScreenZoomCommand = new RelayCommand(ToggleScreenZoom, () => IsMirroring);
         ToggleMagnifierCommand = new RelayCommand(ToggleMagnifier, () => IsMirroring);
         ToggleSpotlightCommand = new RelayCommand(ToggleSpotlight, () => IsMirroring);
+        ToggleAnnotationCommand = new RelayCommand(ToggleAnnotations, () => IsMirroring);
 
         _controller.SourceClosed += OnSourceClosed;
         _controller.TargetMonitorLost += OnTargetMonitorLost;
         _controller.StoppedByUser += () => Application.Current.Dispatcher.Invoke(StopMirroring);
+        _controller.AnnotationStateChanged += active =>
+            Application.Current.Dispatcher.Invoke(() => IsAnnotationActive = active);
 
         _config = _configService.Load();
         ScaleMode = _config.ScaleMode;
@@ -373,6 +407,8 @@ public class MainViewModel : ViewModelBase
             MagnifierHotkey = _config.MagnifierHotkey;
         if (!string.IsNullOrWhiteSpace(_config.SpotlightHotkey))
             SpotlightHotkey = _config.SpotlightHotkey;
+        if (!string.IsNullOrWhiteSpace(_config.AnnotationHotkey))
+            AnnotationHotkey = _config.AnnotationHotkey;
         _startWithWindows = StartupService.IsEnabled();
 
         _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
@@ -475,6 +511,7 @@ public class MainViewModel : ViewModelBase
             ToggleScreenZoomCommand.RaiseCanExecuteChanged();
             ToggleMagnifierCommand.RaiseCanExecuteChanged();
             ToggleSpotlightCommand.RaiseCanExecuteChanged();
+            ToggleAnnotationCommand.RaiseCanExecuteChanged();
         }
         catch (Exception ex)
         {
@@ -497,6 +534,7 @@ public class MainViewModel : ViewModelBase
         ToggleScreenZoomCommand.RaiseCanExecuteChanged();
         ToggleMagnifierCommand.RaiseCanExecuteChanged();
         ToggleSpotlightCommand.RaiseCanExecuteChanged();
+        ToggleAnnotationCommand.RaiseCanExecuteChanged();
     }
 
     public void ToggleMirroring()
@@ -526,11 +564,19 @@ public class MainViewModel : ViewModelBase
         SyncPresentationState();
     }
 
+    public void ToggleAnnotations()
+    {
+        if (!IsMirroring) return;
+        _controller.ToggleAnnotations();
+        SyncPresentationState();
+    }
+
     private void SyncPresentationState()
     {
         IsScreenZoomActive = _controller.IsScreenZoomEnabled;
         IsMagnifierActive = _controller.IsMagnifierEnabled;
         IsSpotlightActive = _controller.IsSpotlightEnabled;
+        IsAnnotationActive = _controller.IsAnnotationEnabled;
     }
 
     private void OpenSwitchWindow()
@@ -607,6 +653,7 @@ public class MainViewModel : ViewModelBase
         _config.ScreenZoomHotkey = ScreenZoomHotkey;
         _config.MagnifierHotkey = MagnifierHotkey;
         _config.SpotlightHotkey = SpotlightHotkey;
+        _config.AnnotationHotkey = AnnotationHotkey;
         _config.StartWithWindows = StartWithWindows;
         _configService.Save(_config);
     }

@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
+using MirrorCast.Annotations;
 using MirrorCast.Interop;
 using MirrorCast.Models;
 
@@ -34,6 +35,30 @@ public partial class PresentationOverlayWindow : Window
         User32.SetWindowPos(_hwnd, User32.HWND_TOPMOST,
             monitor.Bounds.Left, monitor.Bounds.Top, monitor.Bounds.Width, monitor.Bounds.Height,
             User32.SWP_NOACTIVATE | User32.SWP_SHOWWINDOW);
+    }
+
+    public void SetAnnotationDocument(AnnotationDocument document)
+    {
+        ProjectedAnnotations.Document = document;
+    }
+
+    public void UpdateAnnotationViewport(RECT screenBounds, Rect sourceView, bool visible)
+    {
+        if (_hwnd == IntPtr.Zero || screenBounds.Width <= 0 || screenBounds.Height <= 0) return;
+        if (!visible)
+        {
+            ProjectedAnnotations.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var topLeft = PointFromScreen(new System.Windows.Point(screenBounds.Left, screenBounds.Top));
+        var bottomRight = PointFromScreen(new System.Windows.Point(screenBounds.Right, screenBounds.Bottom));
+        ProjectedAnnotations.Width = Math.Max(1, bottomRight.X - topLeft.X);
+        ProjectedAnnotations.Height = Math.Max(1, bottomRight.Y - topLeft.Y);
+        ProjectedAnnotations.ViewRect = sourceView;
+        Canvas.SetLeft(ProjectedAnnotations, topLeft.X);
+        Canvas.SetTop(ProjectedAnnotations, topLeft.Y);
+        ProjectedAnnotations.Visibility = Visibility.Visible;
     }
 
     public void UpdateEffects(bool spotlightVisible, double screenX, double screenY,
