@@ -10,6 +10,7 @@ public class HotkeyService : IDisposable
     private HwndSource? _source;
     private IntPtr _hwnd;
     private readonly Dictionary<int, Action> _handlers = new();
+    private readonly Dictionary<string, int> _idsByKey = new(StringComparer.Ordinal);
     private int _nextId = 0x0B00;
 
     public void Initialize(Window window)
@@ -19,15 +20,24 @@ public class HotkeyService : IDisposable
         _source?.AddHook(WndProc);
     }
 
-    public bool Register(string hotkeyText, Action handler)
+    public bool Register(string registrationKey, string hotkeyText, Action handler)
     {
+        Unregister(registrationKey);
         if (!TryParse(hotkeyText, out uint modifiers, out uint vk)) return false;
 
         int id = _nextId++;
         if (!User32.RegisterHotKey(_hwnd, id, modifiers, vk)) return false;
 
         _handlers[id] = handler;
+        _idsByKey[registrationKey] = id;
         return true;
+    }
+
+    public void Unregister(string registrationKey)
+    {
+        if (!_idsByKey.Remove(registrationKey, out int id)) return;
+        User32.UnregisterHotKey(_hwnd, id);
+        _handlers.Remove(id);
     }
 
     public void UnregisterAll()
@@ -35,6 +45,7 @@ public class HotkeyService : IDisposable
         foreach (var id in _handlers.Keys)
             User32.UnregisterHotKey(_hwnd, id);
         _handlers.Clear();
+        _idsByKey.Clear();
     }
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)

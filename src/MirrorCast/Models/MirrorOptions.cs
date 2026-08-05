@@ -14,4 +14,10 @@ public class MirrorOptions
     /// include the pointer, so without this the audience cannot see what you are pointing at.
     /// </summary>
     public bool ShowSyntheticCursor { get; set; } = true;
+
+    /// <summary>Magnification used by full-screen zoom and the pointer magnifier.</summary>
+    public double PresentationZoomFactor { get; set; } = 2.0;
+
+    /// <summary>Diameter of pointer-centered presentation effects in physical pixels.</summary>
+    public int PointerEffectSize { get; set; } = 240;
 }

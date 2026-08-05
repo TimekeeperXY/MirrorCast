@@ -9,8 +9,11 @@ namespace MirrorCast.Services;
 public class ThumbnailController
 {
     private IntPtr _thumbnail = IntPtr.Zero;
+    private IntPtr _magnifierThumbnail = IntPtr.Zero;
     private MirrorWindow? _mirrorWindow;
     private CursorOverlayWindow? _cursorWindow;
+    private MagnifierWindow? _magnifierWindow;
+    private PresentationOverlayWindow? _presentationOverlay;
     private IntPtr _destHwnd;
     private DispatcherTimer? _timer;
     private DispatcherTimer? _cursorTimer;
@@ -19,13 +22,23 @@ public class ThumbnailController
     private MirrorOptions _options = new();
     private bool _wasMinimized;
     private RECT _lastDestRect;
+    private RECT _lastSourceCrop;
     private SIZE _lastSourceSize;
+    private bool _screenZoomEnabled;
+    private bool _magnifierEnabled;
+    private bool _spotlightEnabled;
+    private bool _pointerSourceValid;
+    private double _pointerSourceX;
+    private double _pointerSourceY;
 
     public event Action? SourceClosed;
     public event Action? TargetMonitorLost;
     public event Action? StoppedByUser;
 
     public bool IsRunning => _thumbnail != IntPtr.Zero;
+    public bool IsScreenZoomEnabled => _screenZoomEnabled;
+    public bool IsMagnifierEnabled => _magnifierEnabled;
+    public bool IsSpotlightEnabled => _spotlightEnabled;
 
     public void Start(IntPtr sourceHwnd, MonitorInfo target, MirrorOptions options)
     {
@@ -36,6 +49,11 @@ public class ThumbnailController
         _options = options;
         _wasMinimized = false;
         _lastSourceSize = default;
+        _lastSourceCrop = default;
+        _screenZoomEnabled = false;
+        _magnifierEnabled = false;
+        _spotlightEnabled = false;
+        _pointerSourceValid = false;
 
         _mirrorWindow = new MirrorWindow
         {
@@ -66,8 +84,17 @@ public class ThumbnailController
 
         ApplyProperties();
 
-        // Must be a separate top-level window — DWM draws the thumbnail over the
-        // mirror window's own content, so an in-window overlay is never visible.
+        _magnifierWindow = new MagnifierWindow();
+        _magnifierWindow.Show();
+        _magnifierWindow.HideMagnifier();
+
+        _presentationOverlay = new PresentationOverlayWindow();
+        _presentationOverlay.Show();
+        _presentationOverlay.SetMonitor(target);
+        _presentationOverlay.ClearEffects();
+
+        // Must be a separate top-level window because DWM draws over the mirror window.
+        // Create it last so the synthetic pointer stays above presentation effects.
         _cursorWindow = new CursorOverlayWindow();
         _cursorWindow.Show();
         _cursorWindow.HideCursor();
@@ -80,6 +107,7 @@ public class ThumbnailController
         _cursorTimer.Tick += (_, _) =>
         {
             ResyncIfSourceSizeChanged();
+            UpdatePresentationEffects();
             UpdateCursorOverlay();
         };
         _cursorTimer.Start();
@@ -100,6 +128,8 @@ public class ThumbnailController
             _thumbnail = IntPtr.Zero;
         }
 
+        UnregisterMagnifierThumbnail();
+
         int hr = DwmApi.DwmRegisterThumbnail(_destHwnd, newSourceHwnd, out _thumbnail);
         if (hr != 0)
         {
@@ -109,9 +139,54 @@ public class ThumbnailController
 
         _sourceHwnd = newSourceHwnd;
         _wasMinimized = false;
+        _pointerSourceValid = false;
         _mirrorWindow.SetMinimizedOverlay(false);
 
         ApplyProperties();
+        if (_magnifierEnabled) EnsureMagnifierThumbnail();
+    }
+
+    public bool ToggleScreenZoom()
+    {
+        if (!IsRunning) return false;
+
+        _screenZoomEnabled = !_screenZoomEnabled;
+        if (_screenZoomEnabled)
+        {
+            _magnifierEnabled = false;
+            HideMagnifier();
+        }
+
+        ApplyProperties();
+        return _screenZoomEnabled;
+    }
+
+    public bool ToggleMagnifier()
+    {
+        if (!IsRunning) return false;
+
+        _magnifierEnabled = !_magnifierEnabled;
+        if (_magnifierEnabled)
+        {
+            _screenZoomEnabled = false;
+            ApplyProperties();
+            EnsureMagnifierThumbnail();
+        }
+        else
+        {
+            HideMagnifier();
+        }
+
+        return _magnifierEnabled;
+    }
+
+    public bool ToggleSpotlight()
+    {
+        if (!IsRunning) return false;
+        _spotlightEnabled = !_spotlightEnabled;
+        if (!_spotlightEnabled && !_magnifierEnabled)
+            _presentationOverlay?.ClearEffects();
+        return _spotlightEnabled;
     }
 
     private void Tick()
@@ -183,6 +258,13 @@ public class ThumbnailController
         var destRect = CalculateDestRect(srcSize, _targetMonitor.Bounds.Width, _targetMonitor.Bounds.Height, _options.ScaleMode);
         _lastDestRect = destRect;
 
+        _lastSourceCrop = _screenZoomEnabled
+            ? CalculateCenteredCrop(srcSize,
+                _pointerSourceValid ? _pointerSourceX : srcSize.cx / 2.0,
+                _pointerSourceValid ? _pointerSourceY : srcSize.cy / 2.0,
+                _options.PresentationZoomFactor)
+            : new RECT { Left = 0, Top = 0, Right = srcSize.cx, Bottom = srcSize.cy };
+
         var props = new DWM_THUMBNAIL_PROPERTIES
         {
             dwFlags = DwmApi.DWM_TNP_VISIBLE | DwmApi.DWM_TNP_OPACITY
@@ -193,7 +275,23 @@ public class ThumbnailController
             rcDestination = destRect
         };
 
+        if (_screenZoomEnabled)
+        {
+            props.dwFlags |= DwmApi.DWM_TNP_RECTSOURCE;
+            props.rcSource = _lastSourceCrop;
+        }
+
         DwmApi.DwmUpdateThumbnailProperties(_thumbnail, ref props);
+    }
+
+    private static RECT CalculateCenteredCrop(SIZE source, double centerX, double centerY, double zoomFactor)
+    {
+        zoomFactor = Math.Clamp(zoomFactor, 1.25, 5.0);
+        int width = Math.Clamp((int)Math.Round(source.cx / zoomFactor), 1, source.cx);
+        int height = Math.Clamp((int)Math.Round(source.cy / zoomFactor), 1, source.cy);
+        int left = Math.Clamp((int)Math.Round(centerX - width / 2.0), 0, source.cx - width);
+        int top = Math.Clamp((int)Math.Round(centerY - height / 2.0), 0, source.cy - height);
+        return new RECT { Left = left, Top = top, Right = left + width, Bottom = top + height };
     }
 
     private static RECT CalculateDestRect(SIZE source, int destW, int destH, ScaleMode mode)
@@ -241,6 +339,48 @@ public class ThumbnailController
         }
     }
 
+    private void UpdatePresentationEffects()
+    {
+        if (_targetMonitor == null || _presentationOverlay == null) return;
+
+        if (!TryGetPointerSource(out var sourceX, out var sourceY))
+        {
+            _pointerSourceValid = false;
+            HideMagnifier();
+            _presentationOverlay.ClearEffects();
+            return;
+        }
+
+        _pointerSourceValid = true;
+        _pointerSourceX = sourceX;
+        _pointerSourceY = sourceY;
+
+        if (_screenZoomEnabled)
+            ApplyProperties();
+
+        if (!_magnifierEnabled && !_spotlightEnabled)
+        {
+            _presentationOverlay.ClearEffects();
+            return;
+        }
+
+        if (!TryProjectSourcePoint(sourceX, sourceY, out var screenX, out var screenY))
+            return;
+
+        RECT? magnifierBounds = null;
+        if (_magnifierEnabled)
+            magnifierBounds = UpdateMagnifier(sourceX, sourceY, screenX, screenY);
+        else
+            HideMagnifier();
+
+        _presentationOverlay.UpdateEffects(
+            _spotlightEnabled,
+            screenX,
+            screenY,
+            Math.Max(40, _options.PointerEffectSize / 2),
+            magnifierBounds);
+    }
+
     private void UpdateCursorOverlay()
     {
         if (_cursorWindow == null || _targetMonitor == null) return;
@@ -248,11 +388,8 @@ public class ThumbnailController
         if (!_options.ShowSyntheticCursor ||
             !User32.IsWindow(_sourceHwnd) ||
             User32.IsIconic(_sourceHwnd) ||
-            !TryGetSourceScreenRect(_sourceHwnd, _options.ClientAreaOnly, out var sourceRect) ||
-            sourceRect.Width <= 0 || sourceRect.Height <= 0 ||
-            !User32.GetCursorPos(out var cursorPos) ||
-            cursorPos.X < sourceRect.Left || cursorPos.X >= sourceRect.Right ||
-            cursorPos.Y < sourceRect.Top || cursorPos.Y >= sourceRect.Bottom ||
+            !TryGetPointerSource(out var sourceX, out var sourceY) ||
+            !TryProjectSourcePoint(sourceX, sourceY, out var screenX, out var screenY) ||
             !CursorHelper.TryGetCurrentCursor(out var bitmap, out var hotspotX, out var hotspotY, out _) ||
             bitmap == null)
         {
@@ -260,19 +397,10 @@ public class ThumbnailController
             return;
         }
 
-        // Map cursor position from the source window onto the mirrored rectangle.
-        double relX = (double)(cursorPos.X - sourceRect.Left) / sourceRect.Width;
-        double relY = (double)(cursorPos.Y - sourceRect.Top) / sourceRect.Height;
-
-        // _lastDestRect is relative to the mirror window's client area, which is
-        // positioned at the monitor's physical origin — so add it back for screen coords.
-        double screenX = _targetMonitor.Bounds.Left + _lastDestRect.Left + relX * _lastDestRect.Width;
-        double screenY = _targetMonitor.Bounds.Top + _lastDestRect.Top + relY * _lastDestRect.Height;
-
         // Scale the cursor the same way the picture is scaled, but keep it from
         // becoming unreadably small when the source is heavily downscaled.
-        double scale = _lastDestRect.Width > 0 && sourceRect.Width > 0
-            ? (double)_lastDestRect.Width / sourceRect.Width
+        double scale = _lastDestRect.Width > 0 && _lastSourceCrop.Width > 0
+            ? (double)_lastDestRect.Width / _lastSourceCrop.Width
             : 1.0;
         scale = Math.Clamp(scale, 0.75, 3.0);
 
@@ -282,6 +410,100 @@ public class ThumbnailController
         int y = (int)Math.Round(screenY - hotspotY * scale);
 
         _cursorWindow.ShowCursor(bitmap, x, y, w, h, _destHwnd);
+    }
+
+    private bool TryGetPointerSource(out double sourceX, out double sourceY)
+    {
+        sourceX = 0;
+        sourceY = 0;
+        if (User32.IsIconic(_sourceHwnd) ||
+            _lastSourceSize.cx <= 0 || _lastSourceSize.cy <= 0 ||
+            !TryGetSourceScreenRect(_sourceHwnd, _options.ClientAreaOnly, out var sourceRect) ||
+            sourceRect.Width <= 0 || sourceRect.Height <= 0 ||
+            !User32.GetCursorPos(out var cursorPos) ||
+            cursorPos.X < sourceRect.Left || cursorPos.X >= sourceRect.Right ||
+            cursorPos.Y < sourceRect.Top || cursorPos.Y >= sourceRect.Bottom)
+        {
+            return false;
+        }
+
+        sourceX = (double)(cursorPos.X - sourceRect.Left) / sourceRect.Width * _lastSourceSize.cx;
+        sourceY = (double)(cursorPos.Y - sourceRect.Top) / sourceRect.Height * _lastSourceSize.cy;
+        return true;
+    }
+
+    private bool TryProjectSourcePoint(double sourceX, double sourceY, out double screenX, out double screenY)
+    {
+        screenX = 0;
+        screenY = 0;
+        if (_targetMonitor == null || _lastSourceCrop.Width <= 0 || _lastSourceCrop.Height <= 0)
+            return false;
+
+        double relX = (sourceX - _lastSourceCrop.Left) / _lastSourceCrop.Width;
+        double relY = (sourceY - _lastSourceCrop.Top) / _lastSourceCrop.Height;
+        screenX = _targetMonitor.Bounds.Left + _lastDestRect.Left + relX * _lastDestRect.Width;
+        screenY = _targetMonitor.Bounds.Top + _lastDestRect.Top + relY * _lastDestRect.Height;
+        return true;
+    }
+
+    private RECT? UpdateMagnifier(double sourceX, double sourceY, double screenX, double screenY)
+    {
+        if (_targetMonitor == null || _magnifierWindow == null || !EnsureMagnifierThumbnail())
+            return null;
+
+        int size = Math.Clamp(_options.PointerEffectSize, 120, 480);
+        int margin = 8;
+        int x = Math.Clamp((int)Math.Round(screenX - size / 2.0),
+            _targetMonitor.Bounds.Left + margin,
+            _targetMonitor.Bounds.Right - size - margin);
+        int y = Math.Clamp((int)Math.Round(screenY - size / 2.0),
+            _targetMonitor.Bounds.Top + margin,
+            _targetMonitor.Bounds.Bottom - size - margin);
+        _magnifierWindow.ShowAt(x, y, size);
+
+        double displayScaleX = _lastDestRect.Width > 0 && _lastSourceCrop.Width > 0
+            ? (double)_lastDestRect.Width / _lastSourceCrop.Width : 1.0;
+        double displayScaleY = _lastDestRect.Height > 0 && _lastSourceCrop.Height > 0
+            ? (double)_lastDestRect.Height / _lastSourceCrop.Height : 1.0;
+        double factor = Math.Clamp(_options.PresentationZoomFactor, 1.25, 5.0);
+        int cropWidth = Math.Clamp((int)Math.Round(size / Math.Max(0.01, displayScaleX * factor)), 1, _lastSourceSize.cx);
+        int cropHeight = Math.Clamp((int)Math.Round(size / Math.Max(0.01, displayScaleY * factor)), 1, _lastSourceSize.cy);
+        int cropLeft = Math.Clamp((int)Math.Round(sourceX - cropWidth / 2.0), 0, _lastSourceSize.cx - cropWidth);
+        int cropTop = Math.Clamp((int)Math.Round(sourceY - cropHeight / 2.0), 0, _lastSourceSize.cy - cropHeight);
+
+        var props = new DWM_THUMBNAIL_PROPERTIES
+        {
+            dwFlags = DwmApi.DWM_TNP_VISIBLE | DwmApi.DWM_TNP_OPACITY |
+                      DwmApi.DWM_TNP_RECTDESTINATION | DwmApi.DWM_TNP_RECTSOURCE |
+                      DwmApi.DWM_TNP_SOURCECLIENTAREAONLY,
+            rcDestination = new RECT { Left = 0, Top = 0, Right = size, Bottom = size },
+            rcSource = new RECT { Left = cropLeft, Top = cropTop, Right = cropLeft + cropWidth, Bottom = cropTop + cropHeight },
+            opacity = 255,
+            fVisible = true,
+            fSourceClientAreaOnly = _options.ClientAreaOnly
+        };
+        DwmApi.DwmUpdateThumbnailProperties(_magnifierThumbnail, ref props);
+
+        return new RECT { Left = x, Top = y, Right = x + size, Bottom = y + size };
+    }
+
+    private bool EnsureMagnifierThumbnail()
+    {
+        if (_magnifierThumbnail != IntPtr.Zero) return true;
+        if (_magnifierWindow?.Handle == IntPtr.Zero) return false;
+        return DwmApi.DwmRegisterThumbnail(_magnifierWindow!.Handle, _sourceHwnd, out _magnifierThumbnail) == 0;
+    }
+
+    private void HideMagnifier()
+    {
+        _magnifierWindow?.HideMagnifier();
+    }
+
+    private void UnregisterMagnifierThumbnail()
+    {
+        if (_magnifierThumbnail == IntPtr.Zero) return;
+        DwmApi.DwmUnregisterThumbnail(_magnifierThumbnail);
+        _magnifierThumbnail = IntPtr.Zero;
     }
 
     private static bool TryGetSourceScreenRect(IntPtr hwnd, bool clientAreaOnly, out RECT rect)
@@ -328,12 +550,22 @@ public class ThumbnailController
             _thumbnail = IntPtr.Zero;
         }
 
+        UnregisterMagnifierThumbnail();
+
         _cursorWindow?.Close();
         _cursorWindow = null;
+        _presentationOverlay?.Close();
+        _presentationOverlay = null;
+        _magnifierWindow?.Close();
+        _magnifierWindow = null;
         _mirrorWindow?.Close();
         _mirrorWindow = null;
         _destHwnd = IntPtr.Zero;
         _targetMonitor = null;
         _wasMinimized = false;
+        _screenZoomEnabled = false;
+        _magnifierEnabled = false;
+        _spotlightEnabled = false;
+        _pointerSourceValid = false;
     }
 }

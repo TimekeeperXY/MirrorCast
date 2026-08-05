@@ -1,0 +1,12 @@
+<Window x:Class="MirrorCast.MagnifierWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="MirrorCastMagnifier"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        Background="Black"
+        ShowInTaskbar="False"
+        Topmost="True"
+        ShowActivated="False"
+        WindowStartupLocation="Manual"
+        Left="-32000" Top="-32000" Width="240" Height="240"/>

@@ -81,6 +81,20 @@ public class MainViewModel : ViewModelBase
         set => SetField(ref _showSyntheticCursor, value);
     }
 
+    private double _presentationZoomFactor = 2.0;
+    public double PresentationZoomFactor
+    {
+        get => _presentationZoomFactor;
+        set => SetField(ref _presentationZoomFactor, Math.Round(Math.Clamp(value, 1.25, 5.0), 2));
+    }
+
+    private double _pointerEffectSize = 240;
+    public double PointerEffectSize
+    {
+        get => _pointerEffectSize;
+        set => SetField(ref _pointerEffectSize, Math.Round(Math.Clamp(value, 120, 480)));
+    }
+
     private string _toggleHotkey = "Ctrl+Alt+M";
     public string ToggleHotkey
     {
@@ -96,23 +110,75 @@ public class MainViewModel : ViewModelBase
         }
     }
 
-    private bool _isCapturingHotkey;
-    public bool IsCapturingHotkey
+    private string _screenZoomHotkey = "Ctrl+Alt+Shift+Z";
+    public string ScreenZoomHotkey
     {
-        get => _isCapturingHotkey;
+        get => _screenZoomHotkey;
         set
         {
-            if (SetField(ref _isCapturingHotkey, value))
-                OnPropertyChanged(nameof(HotkeyDisplay));
+            if (SetField(ref _screenZoomHotkey, value))
+            {
+                OnPropertyChanged(nameof(ScreenZoomHotkeyDisplay));
+                OnPropertyChanged(nameof(ScreenZoomButtonText));
+            }
         }
     }
 
-    public string HotkeyDisplay => IsCapturingHotkey ? "请按下新的快捷键…" : ToggleHotkey;
+    private string _magnifierHotkey = "Ctrl+Alt+Shift+L";
+    public string MagnifierHotkey
+    {
+        get => _magnifierHotkey;
+        set
+        {
+            if (SetField(ref _magnifierHotkey, value))
+            {
+                OnPropertyChanged(nameof(MagnifierHotkeyDisplay));
+                OnPropertyChanged(nameof(MagnifierButtonText));
+            }
+        }
+    }
+
+    private string _spotlightHotkey = "Ctrl+Alt+Shift+P";
+    public string SpotlightHotkey
+    {
+        get => _spotlightHotkey;
+        set
+        {
+            if (SetField(ref _spotlightHotkey, value))
+            {
+                OnPropertyChanged(nameof(SpotlightHotkeyDisplay));
+                OnPropertyChanged(nameof(SpotlightButtonText));
+            }
+        }
+    }
+
+    private HotkeyAction? _capturingHotkeyAction;
+    public HotkeyAction? CapturingHotkeyAction
+    {
+        get => _capturingHotkeyAction;
+        private set
+        {
+            if (SetField(ref _capturingHotkeyAction, value))
+            {
+                OnPropertyChanged(nameof(IsCapturingHotkey));
+                OnPropertyChanged(nameof(HotkeyDisplay));
+                OnPropertyChanged(nameof(ScreenZoomHotkeyDisplay));
+                OnPropertyChanged(nameof(MagnifierHotkeyDisplay));
+                OnPropertyChanged(nameof(SpotlightHotkeyDisplay));
+            }
+        }
+    }
+
+    public bool IsCapturingHotkey => CapturingHotkeyAction != null;
+    public string HotkeyDisplay => CapturingHotkeyAction == HotkeyAction.Mirror ? "请按下新的快捷键…" : ToggleHotkey;
+    public string ScreenZoomHotkeyDisplay => CapturingHotkeyAction == HotkeyAction.ScreenZoom ? "请按快捷键…" : ScreenZoomHotkey;
+    public string MagnifierHotkeyDisplay => CapturingHotkeyAction == HotkeyAction.Magnifier ? "请按快捷键…" : MagnifierHotkey;
+    public string SpotlightHotkeyDisplay => CapturingHotkeyAction == HotkeyAction.Spotlight ? "请按快捷键…" : SpotlightHotkey;
     public string StartButtonText => $"开始镜像  ({ToggleHotkey})";
     public string StopButtonText => $"停止镜像  ({ToggleHotkey})";
 
     /// <summary>Raised when the shortcut changed and needs re-registering with Windows.</summary>
-    public event Func<string, bool>? HotkeyChangeRequested;
+    public event Func<HotkeyAction, string, bool>? HotkeyChangeRequested;
 
     private bool _isOnboardingVisible;
     public bool IsOnboardingVisible
@@ -131,23 +197,44 @@ public class MainViewModel : ViewModelBase
         SaveConfig();
     }
 
-    public void BeginCaptureHotkey() => IsCapturingHotkey = true;
-    public void CancelCaptureHotkey() => IsCapturingHotkey = false;
+    public void BeginCaptureHotkey(HotkeyAction action) => CapturingHotkeyAction = action;
+    public void CancelCaptureHotkey() => CapturingHotkeyAction = null;
 
     /// <summary>Applies a newly captured combo, keeping the old one if Windows refuses it.</summary>
     public void ApplyCapturedHotkey(string hotkey)
     {
-        IsCapturingHotkey = false;
-        if (hotkey == ToggleHotkey) return;
+        if (CapturingHotkeyAction is not { } action) return;
+        CapturingHotkeyAction = null;
+        if (hotkey == GetHotkey(action)) return;
 
-        if (HotkeyChangeRequested?.Invoke(hotkey) == true)
+        if (HotkeyChangeRequested?.Invoke(action, hotkey) == true)
         {
-            ToggleHotkey = hotkey;
+            SetHotkey(action, hotkey);
             SaveConfig();
         }
         else
         {
             Notify?.Invoke($"快捷键 {hotkey} 无法注册，可能已被其他程序占用，已保留原设置。");
+        }
+    }
+
+    public string GetHotkey(HotkeyAction action) => action switch
+    {
+        HotkeyAction.Mirror => ToggleHotkey,
+        HotkeyAction.ScreenZoom => ScreenZoomHotkey,
+        HotkeyAction.Magnifier => MagnifierHotkey,
+        HotkeyAction.Spotlight => SpotlightHotkey,
+        _ => throw new ArgumentOutOfRangeException(nameof(action))
+    };
+
+    private void SetHotkey(HotkeyAction action, string hotkey)
+    {
+        switch (action)
+        {
+            case HotkeyAction.Mirror: ToggleHotkey = hotkey; break;
+            case HotkeyAction.ScreenZoom: ScreenZoomHotkey = hotkey; break;
+            case HotkeyAction.Magnifier: MagnifierHotkey = hotkey; break;
+            case HotkeyAction.Spotlight: SpotlightHotkey = hotkey; break;
         }
     }
 
@@ -193,6 +280,43 @@ public class MainViewModel : ViewModelBase
     public bool ShowMirroringStatus => IsMirroring && !IsSwitchingWindow;
     public bool ShowSwitchPanel => IsMirroring && IsSwitchingWindow;
 
+    private bool _isScreenZoomActive;
+    public bool IsScreenZoomActive
+    {
+        get => _isScreenZoomActive;
+        private set
+        {
+            if (SetField(ref _isScreenZoomActive, value))
+                OnPropertyChanged(nameof(ScreenZoomButtonText));
+        }
+    }
+
+    private bool _isMagnifierActive;
+    public bool IsMagnifierActive
+    {
+        get => _isMagnifierActive;
+        private set
+        {
+            if (SetField(ref _isMagnifierActive, value))
+                OnPropertyChanged(nameof(MagnifierButtonText));
+        }
+    }
+
+    private bool _isSpotlightActive;
+    public bool IsSpotlightActive
+    {
+        get => _isSpotlightActive;
+        private set
+        {
+            if (SetField(ref _isSpotlightActive, value))
+                OnPropertyChanged(nameof(SpotlightButtonText));
+        }
+    }
+
+    public string ScreenZoomButtonText => $"{(IsScreenZoomActive ? "关闭" : "开启")}屏幕放大  ({ScreenZoomHotkey})";
+    public string MagnifierButtonText => $"{(IsMagnifierActive ? "关闭" : "开启")}指针放大镜  ({MagnifierHotkey})";
+    public string SpotlightButtonText => $"{(IsSpotlightActive ? "关闭" : "开启")}指针聚光灯  ({SpotlightHotkey})";
+
     private bool _canStart = true;
     public bool CanStart
     {
@@ -205,6 +329,9 @@ public class MainViewModel : ViewModelBase
     public RelayCommand StopCommand { get; }
     public RelayCommand OpenSwitchWindowCommand { get; }
     public RelayCommand CancelSwitchWindowCommand { get; }
+    public RelayCommand ToggleScreenZoomCommand { get; }
+    public RelayCommand ToggleMagnifierCommand { get; }
+    public RelayCommand ToggleSpotlightCommand { get; }
 
     public event Action? ShowMainWindowRequested;
     public event Action<string>? Notify;
@@ -223,6 +350,9 @@ public class MainViewModel : ViewModelBase
         StopCommand = new RelayCommand(StopMirroring, () => IsMirroring);
         OpenSwitchWindowCommand = new RelayCommand(OpenSwitchWindow, () => IsMirroring);
         CancelSwitchWindowCommand = new RelayCommand(() => IsSwitchingWindow = false);
+        ToggleScreenZoomCommand = new RelayCommand(ToggleScreenZoom, () => IsMirroring);
+        ToggleMagnifierCommand = new RelayCommand(ToggleMagnifier, () => IsMirroring);
+        ToggleSpotlightCommand = new RelayCommand(ToggleSpotlight, () => IsMirroring);
 
         _controller.SourceClosed += OnSourceClosed;
         _controller.TargetMonitorLost += OnTargetMonitorLost;
@@ -233,8 +363,16 @@ public class MainViewModel : ViewModelBase
         ClientAreaOnly = _config.ClientAreaOnly;
         HideCursor = _config.HideCursor;
         ShowSyntheticCursor = _config.ShowSyntheticCursor;
+        PresentationZoomFactor = _config.PresentationZoomFactor;
+        PointerEffectSize = _config.PointerEffectSize;
         if (!string.IsNullOrWhiteSpace(_config.ToggleHotkey))
             ToggleHotkey = _config.ToggleHotkey;
+        if (!string.IsNullOrWhiteSpace(_config.ScreenZoomHotkey))
+            ScreenZoomHotkey = _config.ScreenZoomHotkey;
+        if (!string.IsNullOrWhiteSpace(_config.MagnifierHotkey))
+            MagnifierHotkey = _config.MagnifierHotkey;
+        if (!string.IsNullOrWhiteSpace(_config.SpotlightHotkey))
+            SpotlightHotkey = _config.SpotlightHotkey;
         _startWithWindows = StartupService.IsEnabled();
 
         _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
@@ -320,7 +458,9 @@ public class MainViewModel : ViewModelBase
                 ScaleMode = ScaleMode,
                 ClientAreaOnly = ClientAreaOnly,
                 HideCursor = HideCursor,
-                ShowSyntheticCursor = ShowSyntheticCursor
+                ShowSyntheticCursor = ShowSyntheticCursor,
+                PresentationZoomFactor = PresentationZoomFactor,
+                PointerEffectSize = (int)PointerEffectSize
             };
 
             _controller.Start(SelectedWindow.Hwnd, SelectedMonitor, options);
@@ -332,6 +472,9 @@ public class MainViewModel : ViewModelBase
 
             StartCommand.RaiseCanExecuteChanged();
             StopCommand.RaiseCanExecuteChanged();
+            ToggleScreenZoomCommand.RaiseCanExecuteChanged();
+            ToggleMagnifierCommand.RaiseCanExecuteChanged();
+            ToggleSpotlightCommand.RaiseCanExecuteChanged();
         }
         catch (Exception ex)
         {
@@ -342,6 +485,7 @@ public class MainViewModel : ViewModelBase
     public void StopMirroring()
     {
         _controller.Stop();
+        SyncPresentationState();
         IsMirroring = false;
         IsSwitchingWindow = false;
         _refreshTimer.Start();
@@ -350,12 +494,43 @@ public class MainViewModel : ViewModelBase
 
         StartCommand.RaiseCanExecuteChanged();
         StopCommand.RaiseCanExecuteChanged();
+        ToggleScreenZoomCommand.RaiseCanExecuteChanged();
+        ToggleMagnifierCommand.RaiseCanExecuteChanged();
+        ToggleSpotlightCommand.RaiseCanExecuteChanged();
     }
 
     public void ToggleMirroring()
     {
         if (IsMirroring) StopMirroring();
         else if (StartCommand.CanExecute(null)) StartMirroring();
+    }
+
+    public void ToggleScreenZoom()
+    {
+        if (!IsMirroring) return;
+        _controller.ToggleScreenZoom();
+        SyncPresentationState();
+    }
+
+    public void ToggleMagnifier()
+    {
+        if (!IsMirroring) return;
+        _controller.ToggleMagnifier();
+        SyncPresentationState();
+    }
+
+    public void ToggleSpotlight()
+    {
+        if (!IsMirroring) return;
+        _controller.ToggleSpotlight();
+        SyncPresentationState();
+    }
+
+    private void SyncPresentationState()
+    {
+        IsScreenZoomActive = _controller.IsScreenZoomEnabled;
+        IsMagnifierActive = _controller.IsMagnifierEnabled;
+        IsSpotlightActive = _controller.IsSpotlightEnabled;
     }
 
     private void OpenSwitchWindow()
@@ -427,6 +602,11 @@ public class MainViewModel : ViewModelBase
         _config.HideCursor = HideCursor;
         _config.ShowSyntheticCursor = ShowSyntheticCursor;
         _config.ToggleHotkey = ToggleHotkey;
+        _config.PresentationZoomFactor = PresentationZoomFactor;
+        _config.PointerEffectSize = (int)PointerEffectSize;
+        _config.ScreenZoomHotkey = ScreenZoomHotkey;
+        _config.MagnifierHotkey = MagnifierHotkey;
+        _config.SpotlightHotkey = SpotlightHotkey;
         _config.StartWithWindows = StartWithWindows;
         _configService.Save(_config);
     }

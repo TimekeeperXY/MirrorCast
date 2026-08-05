@@ -1,0 +1,29 @@
+<Window x:Class="MirrorCast.PresentationOverlayWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="MirrorCastPresentationOverlay"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        Topmost="True"
+        ShowActivated="False"
+        WindowStartupLocation="Manual"
+        Left="-32000" Top="-32000" Width="200" Height="200">
+    <Grid>
+        <Path x:Name="SpotlightDimmer" Fill="#B8000000" Visibility="Collapsed"/>
+        <Canvas IsHitTestVisible="False">
+            <Border x:Name="MagnifierFrame"
+                    Visibility="Collapsed"
+                    BorderBrush="#FFFFFFFF"
+                    BorderThickness="3"
+                    CornerRadius="14"
+                    Background="Transparent">
+                <Border.Effect>
+                    <DropShadowEffect Color="Black" BlurRadius="12" ShadowDepth="2" Opacity="0.75"/>
+                </Border.Effect>
+            </Border>
+        </Canvas>
+    </Grid>
+</Window>

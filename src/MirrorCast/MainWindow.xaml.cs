@@ -46,7 +46,7 @@ public partial class MainWindow : Window
 
         _hotkeyService.Initialize(this);
         ViewModel.HotkeyChangeRequested += TryApplyHotkey;
-        RegisterHotkeys(ViewModel.ToggleHotkey);
+        RegisterHotkeys();
 
         if (ViewModel.ShouldShowOnboarding)
         {
@@ -55,11 +55,13 @@ public partial class MainWindow : Window
         }
     }
 
-    private void RegisterHotkeys(string toggleHotkey)
+    private void RegisterHotkeys()
     {
         _hotkeyService.UnregisterAll();
-        _hotkeyService.Register(toggleHotkey, () => Dispatcher.Invoke(ViewModel.ToggleMirroring));
-        _hotkeyService.Register("Ctrl+Alt+Shift+M", () => Dispatcher.Invoke(() =>
+        foreach (var action in Enum.GetValues<HotkeyAction>())
+            RegisterHotkeyAction(action, ViewModel.GetHotkey(action));
+
+        _hotkeyService.Register("stop", "Ctrl+Alt+Shift+M", () => Dispatcher.Invoke(() =>
         {
             ViewModel.StopMirroring();
             ShowAndActivate();
@@ -67,22 +69,33 @@ public partial class MainWindow : Window
     }
 
     /// <summary>Swaps in a new shortcut, rolling back to the old one if Windows rejects it.</summary>
-    private bool TryApplyHotkey(string hotkey)
+    private bool TryApplyHotkey(HotkeyAction action, string hotkey)
     {
-        if (!_hotkeyService.IsAvailable(hotkey))
-        {
-            RegisterHotkeys(ViewModel.ToggleHotkey);
-            return false;
-        }
+        if (RegisterHotkeyAction(action, hotkey)) return true;
+        RegisterHotkeyAction(action, ViewModel.GetHotkey(action));
+        return false;
+    }
 
-        RegisterHotkeys(hotkey);
-        return true;
+    private bool RegisterHotkeyAction(HotkeyAction action, string hotkey)
+    {
+        Action handler = action switch
+        {
+            HotkeyAction.Mirror => ViewModel.ToggleMirroring,
+            HotkeyAction.ScreenZoom => ViewModel.ToggleScreenZoom,
+            HotkeyAction.Magnifier => ViewModel.ToggleMagnifier,
+            HotkeyAction.Spotlight => ViewModel.ToggleSpotlight,
+            _ => throw new ArgumentOutOfRangeException(nameof(action))
+        };
+
+        return _hotkeyService.Register(action.ToString(), hotkey,
+            () => Dispatcher.Invoke(handler));
     }
 
     private void HotkeyButton_Click(object sender, RoutedEventArgs e)
     {
-        ViewModel.BeginCaptureHotkey();
-        Keyboard.Focus(HotkeyButton);
+        if (sender is not System.Windows.Controls.Button { Tag: HotkeyAction action } button) return;
+        ViewModel.BeginCaptureHotkey(action);
+        Keyboard.Focus(button);
     }
 
     private void Window_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
