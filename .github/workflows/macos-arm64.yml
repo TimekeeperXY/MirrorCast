@@ -1,0 +1,56 @@
+name: macOS Apple Silicon
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "mac/**"
+      - ".github/workflows/macos-arm64.yml"
+  pull_request:
+    paths:
+      - "mac/**"
+      - ".github/workflows/macos-arm64.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-arm64:
+    name: Build Apple Silicon DMG
+    runs-on: macos-15
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          uname -m
+          sw_vers
+          swift --version
+
+      - name: Build and package arm64
+        working-directory: mac
+        run: ./package-dmg.sh --arch arm64
+
+      - name: Verify application and bundled tools
+        working-directory: mac
+        run: |
+          test "$(uname -m)" = "arm64"
+          lipo .build/bundle/MirrorCast.app/Contents/MacOS/MirrorCast -verify_arch arm64
+          TOOLS=.build/bundle/MirrorCast.app/Contents/Resources/android-tools
+          "$TOOLS/macos-aarch64/platform-tools/adb" version
+          "$TOOLS/macos-aarch64/scrcpy/scrcpy" --version
+          test -f "$TOOLS/macos-aarch64/scrcpy/scrcpy-server"
+
+      - name: Upload Apple Silicon DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: MirrorCast-macOS-arm64
+          path: |
+            mac/dist/MirrorCast-*-macOS-arm64.dmg
+            mac/dist/MirrorCast-*-macOS-arm64.dmg.sha256
+          if-no-files-found: error
