@@ -11,6 +11,14 @@ namespace MirrorCast.ViewModels;
 
 public class MainViewModel : ViewModelBase
 {
+    private enum PresentationFeature
+    {
+        ScreenZoom,
+        Magnifier,
+        Spotlight,
+        Annotation
+    }
+
     private readonly ConfigService _configService = new();
     private readonly ThumbnailController _controller = new();
     private readonly DispatcherTimer _refreshTimer;
@@ -93,6 +101,22 @@ public class MainViewModel : ViewModelBase
     {
         get => _pointerEffectSize;
         set => SetField(ref _pointerEffectSize, Math.Round(Math.Clamp(value, 120, 480)));
+    }
+
+    private bool _presentationKeyModeEnabled = true;
+    public bool PresentationKeyModeEnabled
+    {
+        get => _presentationKeyModeEnabled;
+        set
+        {
+            if (!SetField(ref _presentationKeyModeEnabled, value)) return;
+            PresentationKeyModeChanged?.Invoke();
+            SaveConfig();
+            OnPropertyChanged(nameof(ScreenZoomButtonText));
+            OnPropertyChanged(nameof(MagnifierButtonText));
+            OnPropertyChanged(nameof(SpotlightButtonText));
+            OnPropertyChanged(nameof(AnnotationButtonText));
+        }
     }
 
     private string _toggleHotkey = "Ctrl+Alt+M";
@@ -342,10 +366,16 @@ public class MainViewModel : ViewModelBase
         }
     }
 
-    public string ScreenZoomButtonText => $"{(IsScreenZoomActive ? "关闭" : "开启")}屏幕放大  ({ScreenZoomHotkey})";
-    public string MagnifierButtonText => $"{(IsMagnifierActive ? "关闭" : "开启")}指针放大镜  ({MagnifierHotkey})";
-    public string SpotlightButtonText => $"{(IsSpotlightActive ? "关闭" : "开启")}指针聚光灯  ({SpotlightHotkey})";
-    public string AnnotationButtonText => $"{(IsAnnotationActive ? "退出" : "进入")}屏幕标注  ({AnnotationHotkey})";
+    private string KeyHint(string functionKey, string configuredHotkey)
+        => PresentationKeyModeEnabled ? $"{functionKey} / {configuredHotkey}" : configuredHotkey;
+
+    public string ScreenZoomButtonText => $"{(IsScreenZoomActive ? "关闭" : "开启")}屏幕放大  ({KeyHint("F1", ScreenZoomHotkey)})";
+    public string MagnifierButtonText => $"{(IsMagnifierActive ? "关闭" : "开启")}指针放大镜  ({KeyHint("F2", MagnifierHotkey)})";
+    public string SpotlightButtonText => $"{(IsSpotlightActive ? "关闭" : "开启")}指针聚光灯  ({KeyHint("F3", SpotlightHotkey)})";
+    public string AnnotationButtonText => $"{(IsAnnotationActive ? "退出" : "进入")}屏幕标注  ({KeyHint("F4", AnnotationHotkey)})";
+
+    private readonly List<PresentationFeature> _activeFeatureOrder = [];
+    private DateTime _lastPresentationEscape = DateTime.MinValue;
 
     private bool _canStart = true;
     public bool CanStart
@@ -366,6 +396,11 @@ public class MainViewModel : ViewModelBase
 
     public event Action? ShowMainWindowRequested;
     public event Action<string>? Notify;
+    public event Action<bool>? MirroringStateChanged;
+    public event Action? PresentationKeyModeChanged;
+
+    public void NotifyPresentationHotkeysUnavailable(IEnumerable<string> keys)
+        => Notify?.Invoke($"演示快捷键 {string.Join("、", keys)} 已被其他程序占用，请使用原组合快捷键。");
 
     public MainViewModel()
     {
@@ -388,9 +423,13 @@ public class MainViewModel : ViewModelBase
 
         _controller.SourceClosed += OnSourceClosed;
         _controller.TargetMonitorLost += OnTargetMonitorLost;
-        _controller.StoppedByUser += () => Application.Current.Dispatcher.Invoke(StopMirroring);
+        _controller.StoppedByUser += () => Application.Current.Dispatcher.Invoke(ExitPresentationModeOrStop);
         _controller.AnnotationStateChanged += active =>
-            Application.Current.Dispatcher.Invoke(() => IsAnnotationActive = active);
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                IsAnnotationActive = active;
+                TrackFeature(PresentationFeature.Annotation, active);
+            });
 
         _config = _configService.Load();
         ScaleMode = _config.ScaleMode;
@@ -399,6 +438,7 @@ public class MainViewModel : ViewModelBase
         ShowSyntheticCursor = _config.ShowSyntheticCursor;
         PresentationZoomFactor = _config.PresentationZoomFactor;
         PointerEffectSize = _config.PointerEffectSize;
+        _presentationKeyModeEnabled = _config.PresentationKeyModeEnabled;
         if (!string.IsNullOrWhiteSpace(_config.ToggleHotkey))
             ToggleHotkey = _config.ToggleHotkey;
         if (!string.IsNullOrWhiteSpace(_config.ScreenZoomHotkey))
@@ -501,6 +541,8 @@ public class MainViewModel : ViewModelBase
 
             _controller.Start(SelectedWindow.Hwnd, SelectedMonitor, options);
             IsMirroring = true;
+            _activeFeatureOrder.Clear();
+            MirroringStateChanged?.Invoke(true);
 
             _refreshTimer.Stop();
             AddRecentWindow(SelectedWindow);
@@ -521,9 +563,12 @@ public class MainViewModel : ViewModelBase
 
     public void StopMirroring()
     {
+        bool wasMirroring = IsMirroring;
         _controller.Stop();
         SyncPresentationState();
+        _activeFeatureOrder.Clear();
         IsMirroring = false;
+        if (wasMirroring) MirroringStateChanged?.Invoke(false);
         IsSwitchingWindow = false;
         _refreshTimer.Start();
         RefreshMonitors();
@@ -546,29 +591,77 @@ public class MainViewModel : ViewModelBase
     public void ToggleScreenZoom()
     {
         if (!IsMirroring) return;
-        _controller.ToggleScreenZoom();
+        bool active = _controller.ToggleScreenZoom();
         SyncPresentationState();
+        TrackFeature(PresentationFeature.ScreenZoom, active);
+        TrackFeature(PresentationFeature.Magnifier, IsMagnifierActive);
     }
 
     public void ToggleMagnifier()
     {
         if (!IsMirroring) return;
-        _controller.ToggleMagnifier();
+        bool active = _controller.ToggleMagnifier();
         SyncPresentationState();
+        TrackFeature(PresentationFeature.Magnifier, active);
+        TrackFeature(PresentationFeature.ScreenZoom, IsScreenZoomActive);
     }
 
     public void ToggleSpotlight()
     {
         if (!IsMirroring) return;
-        _controller.ToggleSpotlight();
+        bool active = _controller.ToggleSpotlight();
         SyncPresentationState();
+        TrackFeature(PresentationFeature.Spotlight, active);
     }
 
     public void ToggleAnnotations()
     {
         if (!IsMirroring) return;
-        _controller.ToggleAnnotations();
+        bool active = _controller.ToggleAnnotations();
         SyncPresentationState();
+        TrackFeature(PresentationFeature.Annotation, active);
+    }
+
+    public void ExitPresentationModeOrStop()
+    {
+        if (!IsMirroring) return;
+        var now = DateTime.UtcNow;
+        if (now - _lastPresentationEscape < TimeSpan.FromMilliseconds(250)) return;
+        _lastPresentationEscape = now;
+
+        ReconcileFeatureOrder();
+        if (_activeFeatureOrder.Count == 0)
+        {
+            StopMirroring();
+            return;
+        }
+
+        var feature = _activeFeatureOrder[^1];
+        switch (feature)
+        {
+            case PresentationFeature.ScreenZoom: ToggleScreenZoom(); break;
+            case PresentationFeature.Magnifier: ToggleMagnifier(); break;
+            case PresentationFeature.Spotlight: ToggleSpotlight(); break;
+            case PresentationFeature.Annotation: ToggleAnnotations(); break;
+        }
+    }
+
+    private void TrackFeature(PresentationFeature feature, bool active)
+    {
+        _activeFeatureOrder.Remove(feature);
+        if (active) _activeFeatureOrder.Add(feature);
+    }
+
+    private void ReconcileFeatureOrder()
+    {
+        _activeFeatureOrder.RemoveAll(feature => feature switch
+        {
+            PresentationFeature.ScreenZoom => !IsScreenZoomActive,
+            PresentationFeature.Magnifier => !IsMagnifierActive,
+            PresentationFeature.Spotlight => !IsSpotlightActive,
+            PresentationFeature.Annotation => !IsAnnotationActive,
+            _ => true
+        });
     }
 
     private void SyncPresentationState()
@@ -650,6 +743,7 @@ public class MainViewModel : ViewModelBase
         _config.ToggleHotkey = ToggleHotkey;
         _config.PresentationZoomFactor = PresentationZoomFactor;
         _config.PointerEffectSize = (int)PointerEffectSize;
+        _config.PresentationKeyModeEnabled = PresentationKeyModeEnabled;
         _config.ScreenZoomHotkey = ScreenZoomHotkey;
         _config.MagnifierHotkey = MagnifierHotkey;
         _config.SpotlightHotkey = SpotlightHotkey;

@@ -17,6 +17,7 @@ public class AppConfig
     public string StopHotkey { get; set; } = "Ctrl+Alt+Shift+M";
     public double PresentationZoomFactor { get; set; } = 2.0;
     public int PointerEffectSize { get; set; } = 240;
+    public bool PresentationKeyModeEnabled { get; set; } = true;
     public string ScreenZoomHotkey { get; set; } = "Ctrl+Alt+Shift+Z";
     public string MagnifierHotkey { get; set; } = "Ctrl+Alt+Shift+L";
     public string SpotlightHotkey { get; set; } = "Ctrl+Alt+Shift+P";

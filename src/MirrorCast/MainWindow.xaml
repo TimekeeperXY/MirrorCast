@@ -137,6 +137,10 @@
                        Foreground="{DynamicResource AppTextSecondaryBrush}"/>
             <Border Style="{StaticResource CardBorderStyle}" Padding="14" Margin="0,0,0,16">
                 <StackPanel>
+                    <CheckBox Content="镜像时启用 F1-F4 演示快捷模式"
+                              IsChecked="{Binding PresentationKeyModeEnabled}"
+                              Margin="0,0,0,14"
+                              ToolTip="F1 屏幕放大、F2 指针放大镜、F3 指针聚光灯、F4 屏幕标注；Esc 退出当前功能"/>
                     <Grid Margin="0,0,0,12">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>

@@ -21,6 +21,7 @@ public partial class AnnotationOverlayWindow : Window
     private uint _lastDpi;
 
     public event Action? ExitRequested;
+    public event Action? EscapeRequested;
 
     public AnnotationOverlayWindow()
     {
@@ -94,7 +95,7 @@ public partial class AnnotationOverlayWindow : Window
     {
         if (e.Key == Key.Escape)
         {
-            ExitRequested?.Invoke();
+            EscapeRequested?.Invoke();
             e.Handled = true;
         }
         else if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control) && e.Key == Key.Z)

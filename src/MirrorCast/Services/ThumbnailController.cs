@@ -217,6 +217,7 @@ public class ThumbnailController
         _annotationWindow = new AnnotationOverlayWindow();
         _annotationWindow.SetDocument(_annotationDocument);
         _annotationWindow.ExitRequested += DisableAnnotations;
+        _annotationWindow.EscapeRequested += OnPresentationEscapeRequested;
         _annotationWindow.Closed += AnnotationWindow_Closed;
         _annotationWindow.Show();
         _annotationWindow.SetBounds(sourceBounds);
@@ -231,6 +232,7 @@ public class ThumbnailController
         if (_annotationWindow != null)
         {
             _annotationWindow.ExitRequested -= DisableAnnotations;
+            _annotationWindow.EscapeRequested -= OnPresentationEscapeRequested;
             _annotationWindow.Closed -= AnnotationWindow_Closed;
             _annotationWindow.Close();
             _annotationWindow = null;
@@ -246,6 +248,7 @@ public class ThumbnailController
         if (_annotationWindow != null)
         {
             _annotationWindow.ExitRequested -= DisableAnnotations;
+            _annotationWindow.EscapeRequested -= OnPresentationEscapeRequested;
             _annotationWindow.Closed -= AnnotationWindow_Closed;
             _annotationWindow = null;
         }
@@ -254,6 +257,8 @@ public class ThumbnailController
         _annotationEnabled = false;
         AnnotationStateChanged?.Invoke(false);
     }
+
+    private void OnPresentationEscapeRequested() => StoppedByUser?.Invoke();
 
     private void Tick()
     {

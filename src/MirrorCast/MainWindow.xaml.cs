@@ -46,6 +46,8 @@ public partial class MainWindow : Window
 
         _hotkeyService.Initialize(this);
         ViewModel.HotkeyChangeRequested += TryApplyHotkey;
+        ViewModel.MirroringStateChanged += _ => UpdatePresentationModeHotkeys();
+        ViewModel.PresentationKeyModeChanged += UpdatePresentationModeHotkeys;
         RegisterHotkeys();
 
         if (ViewModel.ShouldShowOnboarding)
@@ -66,6 +68,34 @@ public partial class MainWindow : Window
             ViewModel.StopMirroring();
             ShowAndActivate();
         }));
+    }
+
+    private void UpdatePresentationModeHotkeys()
+    {
+        string[] keys = ["presentation-f1", "presentation-f2", "presentation-f3", "presentation-f4", "presentation-escape"];
+        foreach (var key in keys) _hotkeyService.Unregister(key);
+
+        if (!ViewModel.IsMirroring || !ViewModel.PresentationKeyModeEnabled) return;
+
+        var registrations = new (string Key, string Hotkey, Action Handler)[]
+        {
+            (keys[0], "F1", ViewModel.ToggleScreenZoom),
+            (keys[1], "F2", ViewModel.ToggleMagnifier),
+            (keys[2], "F3", ViewModel.ToggleSpotlight),
+            (keys[3], "F4", ViewModel.ToggleAnnotations),
+            (keys[4], "Escape", ViewModel.ExitPresentationModeOrStop)
+        };
+
+        var unavailable = new List<string>();
+        foreach (var registration in registrations)
+        {
+            if (!_hotkeyService.Register(registration.Key, registration.Hotkey,
+                    () => Dispatcher.Invoke(registration.Handler)))
+                unavailable.Add(registration.Hotkey);
+        }
+
+        if (unavailable.Count > 0)
+            ViewModel.NotifyPresentationHotkeysUnavailable(unavailable);
     }
 
     /// <summary>Swaps in a new shortcut, rolling back to the old one if Windows rejects it.</summary>
