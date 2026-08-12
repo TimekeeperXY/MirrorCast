@@ -9,7 +9,7 @@
 [![Release](https://img.shields.io/github/v/release/TimekeeperXY/MirrorCast)](https://github.com/TimekeeperXY/MirrorCast/releases)
 [![License](https://img.shields.io/badge/license-MIT-2ea44f)](LICENSE)
 
-[下载 Windows 版](https://github.com/TimekeeperXY/MirrorCast/releases/download/v1.1.1/MirrorCast.exe) ·
+[下载 Windows 版](https://github.com/TimekeeperXY/MirrorCast/releases/download/v1.3.0/MirrorCast.exe) ·
 [下载 macOS DMG](https://github.com/TimekeeperXY/MirrorCast/releases/download/v1.2.0/MirrorCast-v1.2.0-macOS-arm64.dmg) ·
 [查看全部版本](https://github.com/TimekeeperXY/MirrorCast/releases)
 
@@ -61,7 +61,7 @@ MirrorCast 会把选中的窗口留在主屏原位，同时将它实时显示在
 
 ### Windows
 
-1. 下载 [MirrorCast v1.1.1 Windows EXE](https://github.com/TimekeeperXY/MirrorCast/releases/download/v1.1.1/MirrorCast.exe)。
+1. 下载 [MirrorCast v1.3.0 Windows EXE](https://github.com/TimekeeperXY/MirrorCast/releases/download/v1.3.0/MirrorCast.exe)。
 2. 双击运行，无需安装 .NET 或其他运行库。
 3. 如果 Windows SmartScreen 显示“已保护你的电脑”，点击“更多信息”后选择“仍要运行”。
 
