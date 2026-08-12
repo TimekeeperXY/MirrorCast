@@ -524,7 +524,6 @@ public class MainViewModel : ViewModelBase
         RefreshMonitors();
         RefreshWindows();
         RestoreLastSelection();
-        _ = RefreshAndroidDevicesAsync();
     }
 
     private bool FilterWindow(object obj)
