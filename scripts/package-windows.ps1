@@ -32,6 +32,11 @@ foreach ($relative in $required) {
     }
 }
 
+& (Join-Path $publish "Resources\android-tools\windows-x86_64\platform-tools\adb.exe") version
+if ($LASTEXITCODE -ne 0) { throw "Packaged adb failed its version check" }
+& (Join-Path $publish "Resources\android-tools\windows-x86_64\scrcpy\scrcpy.exe") --version
+if ($LASTEXITCODE -ne 0) { throw "Packaged scrcpy failed its version check" }
+
 if (Test-Path -LiteralPath $archive) {
     Remove-Item -LiteralPath $archive -Force
 }
