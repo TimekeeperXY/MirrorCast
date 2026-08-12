@@ -495,11 +495,13 @@ final class AppState: ObservableObject {
         guard let frame = activeSourceFrame(), frame.width > 0, frame.height > 0 else {
             return CGPoint(x: 0.5, y: 0.5)
         }
-        let appKitPoint = NSEvent.mouseLocation
-        let mainTop = NSScreen.screens.first?.frame.maxY ?? 0
-        let capturePoint = CGPoint(x: appKitPoint.x, y: mainTop - appKitPoint.y)
-        return CGPoint(x: min(max((capturePoint.x - frame.minX) / frame.width, 0), 1),
-                       y: min(max((capturePoint.y - frame.minY) / frame.height, 0), 1))
+        guard let capturePoint = CGEvent(source: nil)?.location else {
+            return CGPoint(x: 0.5, y: 0.5)
+        }
+        let normalizedX = (capturePoint.x - frame.minX) / frame.width
+        let normalizedYFromTop = (capturePoint.y - frame.minY) / frame.height
+        return CGPoint(x: min(max(normalizedX, 0), 1),
+                       y: min(max(1 - normalizedYFromTop, 0), 1))
     }
 
     func acceptDefaultHotKeyFallback() {
