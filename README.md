@@ -42,6 +42,7 @@ MirrorCast 会把选中的窗口留在主屏原位，同时将它实时显示在
 - 自定义全局快捷键，一键开始或停止镜像
 - 常驻系统托盘或菜单栏，自动保存常用设置
 - 首次运行提供权限和操作流程引导
+- 安卓设备作为镜像来源，支持 USB、无线 ADB、音频与鼠标键盘控制
 
 ## 平台支持
 
@@ -49,7 +50,7 @@ MirrorCast 会把选中的窗口留在主屏原位，同时将它实时显示在
 |---|---|---|
 | 系统要求 | Windows 10 1809+ / Windows 11 | macOS 13+ |
 | 支持架构 | x64 | Apple Silicon arm64、Intel x86_64 |
-| 安装包 | 单文件 `MirrorCast.exe` | 按架构提供的 `MirrorCast-*-macOS-*.dmg` |
+| 安装包 | 轻量单文件或包含安卓组件的 ZIP | 按架构提供的 `MirrorCast-*-macOS-*.dmg` |
 | 镜像技术 | DWM Thumbnail | ScreenCaptureKit + IOSurface |
 | 后台入口 | 系统托盘 | 菜单栏 |
 | 默认快捷键 | `Ctrl + Alt + M` | `Control + Option + M` |
@@ -99,6 +100,17 @@ xattr -dr com.apple.quarantine "/Applications/MirrorCast.app"
 
 镜像开始后，可以直接在窗口列表中选择另一个窗口，副屏会自动切换。关闭控制面板不会退出程序；请通过系统托盘或菜单栏重新打开、停止镜像或退出。
 
+### 安卓设备投屏
+
+完整版内置官方 scrcpy 4.1 和 Android Platform-Tools，无需单独安装 ADB 或 scrcpy。
+
+1. 在安卓设备中开启“开发者选项”和“USB 调试”，首次连接时在手机上允许 RSA 授权。
+2. 在“安卓设备投屏”中刷新并选择设备，选择目标显示器后点击“投到副屏”。
+3. Android 11+ 使用无线调试时，需要先在系统无线调试页面完成一次 `adb pair`；之后 MirrorCast 会通过 ADB mDNS 发现当前连接端口。也可以填写手机 IP 和连接端口。
+4. 可设置 30–165 FPS、鼠标键盘控制、电脑播放安卓音频，以及投屏后关闭手机显示屏。
+
+安卓画面进入副屏后仍可使用 `F1`–`F4` 放大、放大镜、聚光灯和标注。进入标注时，应避免同时操作手机画面；标注只绘制在 MirrorCast 显示层，不会写入安卓设备。
+
 ### 自定义快捷键
 
 点击界面中的快捷键按钮，然后按下新的组合键。组合键需要包含至少一个修饰键：
@@ -138,7 +150,7 @@ Mac 键盘若将功能键用于亮度或音量控制，需要按住 `Fn` 再按�
 
 ### 通用
 
-- MirrorCast 是只读镜像工具，不会把副屏点击或键盘操作传回源窗口。
+- 普通窗口来源保持只读；安卓来源可按用户设置通过 scrcpy 启用鼠标键盘控制。
 - 不提供录制、推流、叠加特效或远程控制功能。
 - 至少需要两块显示器，并处于扩展模式。
 
@@ -170,6 +182,12 @@ dotnet run --project src/MirrorCast
 
 ```bash
 dotnet publish src/MirrorCast -c Release -r win-x64 --self-contained -p:PublishSingleFile=true
+```
+
+生成包含安卓投屏组件的完整 ZIP：
+
+```powershell
+.\scripts\package-windows.ps1
 ```
 
 ### macOS
