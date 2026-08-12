@@ -12,6 +12,9 @@ final class PreferencesStore {
         static let hotKeyCode = "hotKeyCode"
         static let hotKeyModifiers = "hotKeyModifiers"
         static let hotKeyLabel = "hotKeyLabel"
+        static let presentationKeyMode = "presentationKeyMode"
+        static let presentationZoomFactor = "presentationZoomFactor"
+        static let pointerEffectSize = "pointerEffectSize"
     }
 
     private let defaults = UserDefaults.standard
@@ -84,5 +87,30 @@ final class PreferencesStore {
             defaults.set(Int(newValue.modifiers), forKey: Key.hotKeyModifiers)
             defaults.set(newValue.keyLabel, forKey: Key.hotKeyLabel)
         }
+    }
+
+    var presentationKeyMode: Bool {
+        get {
+            defaults.object(forKey: Key.presentationKeyMode) == nil
+                ? true
+                : defaults.bool(forKey: Key.presentationKeyMode)
+        }
+        set { defaults.set(newValue, forKey: Key.presentationKeyMode) }
+    }
+
+    var presentationZoomFactor: Double {
+        get {
+            let value = defaults.double(forKey: Key.presentationZoomFactor)
+            return value == 0 ? 2 : value
+        }
+        set { defaults.set(newValue, forKey: Key.presentationZoomFactor) }
+    }
+
+    var pointerEffectSize: Double {
+        get {
+            let value = defaults.double(forKey: Key.pointerEffectSize)
+            return value == 0 ? 240 : value
+        }
+        set { defaults.set(newValue, forKey: Key.pointerEffectSize) }
     }
 }

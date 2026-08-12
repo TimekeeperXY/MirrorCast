@@ -17,7 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let hosting = NSHostingView(rootView: ControlPanelView(state: state))
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 440, height: 680),
+            contentRect: NSRect(x: 0, y: 0, width: 460, height: 780),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false)
@@ -89,8 +89,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         state.onHotKeyChangeRequested = { [weak self] combination in
             self?.globalHotKey.replace(with: combination) == true
         }
+        state.onMirroringStateChange = { [weak self] _ in
+            self?.updatePresentationHotKeys()
+        }
+        state.onPresentationKeyModeChange = { [weak self] in
+            self?.updatePresentationHotKeys()
+        }
         if !registered {
             state.status = "全局快捷键 \(state.hotKey.displayName) 注册失败，可能与其他应用冲突"
+        }
+    }
+
+    private func updatePresentationHotKeys() {
+        globalHotKey.unregisterPresentationKeys()
+        guard state.isMirroring, state.presentationKeyMode else { return }
+
+        let keys: [(String, UInt32, String, () -> Void)] = [
+            ("f1", UInt32(kVK_F1), "F1", { [weak self] in self?.state.toggleScreenZoom() }),
+            ("f2", UInt32(kVK_F2), "F2", { [weak self] in self?.state.toggleMagnifier() }),
+            ("f3", UInt32(kVK_F3), "F3", { [weak self] in self?.state.toggleSpotlight() }),
+            ("f4", UInt32(kVK_F4), "F4", { [weak self] in self?.state.toggleAnnotations() }),
+            ("escape", UInt32(kVK_Escape), "Esc", { [weak self] in
+                guard let self else { return }
+                Task { await self.state.exitPresentationModeOrStop() }
+            })
+        ]
+
+        var unavailable: [String] = []
+        for (key, keyCode, label, action) in keys {
+            let combination = HotKeyCombination(keyCode: keyCode, modifiers: 0, keyLabel: label)
+            if !globalHotKey.register(key: key, combination: combination, action: action) {
+                unavailable.append(label)
+            }
+        }
+        if !unavailable.isEmpty {
+            state.status = "演示快捷键 \(unavailable.joined(separator: "、")) 已被系统占用"
         }
     }
 

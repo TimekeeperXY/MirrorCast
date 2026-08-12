@@ -52,6 +52,22 @@ final class MirrorWindowController {
         mirrorView?.setScaleMode(gravity)
     }
 
+    func updatePresentation(pointer: CGPoint,
+                            zoomFactor: CGFloat,
+                            magnifierVisible: Bool,
+                            spotlightVisible: Bool,
+                            effectSize: CGFloat) {
+        mirrorView?.updatePresentation(pointer: pointer,
+                                       zoomFactor: zoomFactor,
+                                       magnifierVisible: magnifierVisible,
+                                       spotlightVisible: spotlightVisible,
+                                       effectSize: effectSize)
+    }
+
+    func updateAnnotations(_ items: [AnnotationItem]) {
+        mirrorView?.updateAnnotations(items)
+    }
+
     func close() {
         window?.orderOut(nil)
         window?.contentView = nil
