@@ -20,6 +20,8 @@
     <string>13.0</string>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>用于发现并连接同一局域网中已授权无线调试的安卓设备。</string>
     <key>LSUIElement</key>
     <true/>
 </dict>

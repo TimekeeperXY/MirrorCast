@@ -36,6 +36,7 @@ struct ControlPanelView: View {
                     permissionBanner
                 } else {
                     windowSection
+                    androidSection
                     screenSection
                     scaleModePicker
                     HotKeySettingView(
@@ -130,6 +131,49 @@ struct ControlPanelView: View {
             .frame(height: 200)
         }
         .walkthroughTarget(.sourceWindow)
+    }
+
+    private var androidSection: some View {
+        DisclosureGroup("安卓设备投屏") {
+            VStack(alignment: .leading, spacing: 9) {
+                HStack {
+                    Picker("设备", selection: $state.selectedAndroidSerial) {
+                        Text("选择已授权设备").tag(String?.none)
+                        ForEach(state.androidDevices) { device in
+                            Text(device.displayName).tag(Optional(device.serial))
+                        }
+                    }
+                    .labelsHidden()
+                    Button("刷新设备") { Task { await state.refreshAndroidDevices() } }
+                        .disabled(state.isAndroidBusy || state.isMirroring)
+                }
+
+                HStack {
+                    TextField("无线调试 IP 或主机名（可选）", text: $state.androidAddress)
+                    TextField("端口", value: $state.androidPort, format: .number)
+                        .frame(width: 72)
+                }
+
+                HStack {
+                    Picker("帧率", selection: $state.androidMaxFPS) {
+                        ForEach([30, 60, 90, 120, 165], id: \.self) { value in
+                            Text("\(value) FPS").tag(value)
+                        }
+                    }
+                    Toggle("允许控制", isOn: $state.androidControl)
+                    Toggle("电脑播放声音", isOn: $state.androidAudio)
+                }
+
+                Toggle("投屏后关闭手机显示屏", isOn: $state.androidTurnScreenOff)
+                Button(state.isAndroidBusy ? "正在连接…" : "投到副屏") {
+                    Task { await state.startAndroidMirroring() }
+                }
+                .frame(maxWidth: .infinity)
+                .buttonStyle(.borderedProminent)
+                .disabled(!state.canStartAndroid || state.isMirroring)
+            }
+            .padding(.top, 8)
+        }
     }
 
     private var screenSection: some View {

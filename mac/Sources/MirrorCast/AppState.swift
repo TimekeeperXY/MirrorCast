@@ -65,6 +65,15 @@ final class AppState: ObservableObject {
     @Published private(set) var isMagnifierActive = false
     @Published private(set) var isSpotlightActive = false
     @Published private(set) var isAnnotationActive = false
+    @Published private(set) var androidDevices: [AndroidDeviceInfo] = []
+    @Published var selectedAndroidSerial: String?
+    @Published var androidAddress = "" { didSet { preferences.androidAddress = androidAddress } }
+    @Published var androidPort = 5555 { didSet { preferences.androidPort = androidPort } }
+    @Published var androidMaxFPS = 60 { didSet { preferences.androidMaxFPS = androidMaxFPS } }
+    @Published var androidControl = true { didSet { preferences.androidControl = androidControl } }
+    @Published var androidAudio = true { didSet { preferences.androidAudio = androidAudio } }
+    @Published var androidTurnScreenOff = false { didSet { preferences.androidTurnScreenOff = androidTurnScreenOff } }
+    @Published private(set) var isAndroidBusy = false
 
     var onHotKeyChangeRequested: ((HotKeyCombination) -> Bool)?
     var onMirroringStateChange: ((Bool) -> Void)?
@@ -78,6 +87,7 @@ final class AppState: ObservableObject {
     private let mirrorWindow = MirrorWindowController()
     private let preferences = PreferencesStore()
     private let annotationDocument = AnnotationDocument()
+    private let androidMirror = AndroidMirrorService()
     private var mirrorMonitorTask: Task<Void, Never>?
     private var pointerMonitorTask: Task<Void, Never>?
     private var activeWindowID: CGWindowID?
@@ -91,6 +101,13 @@ final class AppState: ObservableObject {
         hasPermission && selectedWindowID != nil && selectedScreenID != nil && screens.count > 1
     }
 
+    var canStartAndroid: Bool {
+        hasPermission && selectedScreenID != nil && screens.count > 1 && !isAndroidBusy
+            && (selectedAndroidSerial != nil || !androidAddress.trimmingCharacters(in: .whitespaces).isEmpty)
+    }
+
+    var isAndroidAvailable: Bool { androidMirror.isAvailable }
+
     init() {
         showsCursor = preferences.showsCursor
         scaleMode = preferences.scaleMode
@@ -98,6 +115,12 @@ final class AppState: ObservableObject {
         presentationKeyMode = preferences.presentationKeyMode
         presentationZoomFactor = preferences.presentationZoomFactor
         pointerEffectSize = preferences.pointerEffectSize
+        androidAddress = preferences.androidAddress
+        androidPort = preferences.androidPort
+        androidMaxFPS = preferences.androidMaxFPS
+        androidControl = preferences.androidControl
+        androidAudio = preferences.androidAudio
+        androidTurnScreenOff = preferences.androidTurnScreenOff
         hasPermission = PermissionService.hasScreenRecordingAccess()
         showsPermissionOnboarding = !hasPermission
         walkthroughStep = hasPermission && !preferences.completedWalkthrough ? .sourceWindow : nil
@@ -230,6 +253,62 @@ final class AppState: ObservableObject {
         return (screen.deviceDescription[key] as? NSNumber)?.uint32Value
     }
 
+    func refreshAndroidDevices() async {
+        guard !isMirroring, !isAndroidBusy else { return }
+        isAndroidBusy = true
+        status = isAndroidAvailable ? "正在查找 USB 和无线 ADB 设备…" : "投屏组件不可用，请安装完整版"
+        defer { isAndroidBusy = false }
+        guard isAndroidAvailable else { return }
+        do {
+            let devices = try await androidMirror.discoverDevices()
+            androidDevices = devices
+            if !devices.contains(where: { $0.serial == selectedAndroidSerial }) {
+                selectedAndroidSerial = devices.first?.serial
+            }
+            status = devices.isEmpty ? "未发现安卓设备，可连接 USB 或填写无线调试地址" : "已发现 \(devices.count) 台安卓设备"
+        } catch {
+            status = error.localizedDescription
+        }
+    }
+
+    func startAndroidMirroring() async {
+        guard canStartAndroid else { return }
+        isAndroidBusy = true
+        status = "正在启动安卓画面…"
+        defer { isAndroidBusy = false }
+        let manualAddress = androidAddress.trimmingCharacters(in: .whitespaces)
+        let options = AndroidMirrorOptions(
+            serial: manualAddress.isEmpty ? selectedAndroidSerial : nil,
+            address: manualAddress.isEmpty ? nil : manualAddress,
+            port: UInt16(clamping: androidPort),
+            control: androidControl,
+            audio: androidAudio,
+            turnScreenOff: androidTurnScreenOff,
+            maxFPS: androidMaxFPS)
+        do {
+            try await androidMirror.start(options)
+            let deadline = Date().addingTimeInterval(15)
+            while Date() < deadline {
+                try androidMirror.ensureRunning()
+                await refreshSources()
+                if let item = windows.first(where: { $0.title == AndroidMirrorService.windowTitle }) {
+                    selectedWindowID = item.id
+                    await startMirroring()
+                    if isMirroring {
+                        status = "安卓画面已投到副屏，可使用 F1-F4 演示功能"
+                        return
+                    }
+                }
+                try await Task.sleep(nanoseconds: 150_000_000)
+            }
+            throw NSError(domain: "MirrorCast.Android", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "等待安卓投屏窗口超时，请检查设备连接和授权状态"])
+        } catch {
+            androidMirror.stop()
+            status = "安卓投屏启动失败：\(error.localizedDescription)"
+        }
+    }
+
     // MARK: - Mirroring
 
     func startMirroring() async {
@@ -328,6 +407,7 @@ final class AppState: ObservableObject {
         resetPresentationFeatures()
         activeWindowID = nil
         mirrorWindow.close()
+        androidMirror.stop()
         let wasMirroring = isMirroring
         isMirroring = false
         if wasMirroring { onMirroringStateChange?(false) }

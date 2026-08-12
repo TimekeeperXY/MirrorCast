@@ -103,6 +103,10 @@ else
 fi
 
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+if [[ -d "Resources/android-tools" ]]; then
+    cp -R Resources/android-tools "$APP/Contents/Resources/"
+    find "$APP/Contents/Resources/android-tools" -type f \( -name adb -o -name scrcpy \) -exec chmod +x {} \;
+fi
 
 # Ad-hoc signing keeps the bundle identity stable enough for Screen Recording permission.
 echo "==> Ad-hoc signing"
