@@ -17,6 +17,8 @@ public partial class AnnotationOverlayWindow : Window
 {
     private IntPtr _hwnd;
     private AnnotationDocument? _document;
+    private RECT _lastBounds;
+    private uint _lastDpi;
 
     public event Action? ExitRequested;
 
@@ -47,9 +49,21 @@ public partial class AnnotationOverlayWindow : Window
     public void SetBounds(RECT bounds)
     {
         if (_hwnd == IntPtr.Zero || bounds.Width <= 0 || bounds.Height <= 0) return;
+        if (_lastBounds.Left == bounds.Left && _lastBounds.Top == bounds.Top &&
+            _lastBounds.Right == bounds.Right && _lastBounds.Bottom == bounds.Bottom &&
+            _lastDpi == User32.GetDpiForWindow(_hwnd))
+            return;
+
         User32.SetWindowPos(_hwnd, User32.HWND_TOPMOST,
             bounds.Left, bounds.Top, bounds.Width, bounds.Height,
             User32.SWP_SHOWWINDOW);
+
+        uint dpi = User32.GetDpiForWindow(_hwnd);
+        double scale = dpi > 0 ? 96.0 / dpi : 1.0;
+        Width = bounds.Width * scale;
+        Height = bounds.Height * scale;
+        _lastBounds = bounds;
+        _lastDpi = dpi;
     }
 
     private void Tool_Click(object sender, RoutedEventArgs e)

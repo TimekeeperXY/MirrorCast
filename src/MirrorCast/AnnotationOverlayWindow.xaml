@@ -13,7 +13,9 @@
         WindowStartupLocation="Manual"
         Left="-32000" Top="-32000" Width="800" Height="500"
         PreviewKeyDown="Window_PreviewKeyDown">
-    <Grid>
+    <!-- Layered windows pass mouse input through fully transparent pixels. A 1/255
+         alpha surface is visually transparent while keeping the drawing area interactive. -->
+    <Grid Background="#01000000">
         <annotations:AnnotationCanvas x:Name="DrawingSurface" IsEditing="True"/>
 
         <Border HorizontalAlignment="Center" VerticalAlignment="Top"

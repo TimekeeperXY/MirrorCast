@@ -13,6 +13,7 @@ public partial class PresentationOverlayWindow : Window
 {
     private IntPtr _hwnd;
     private MonitorInfo? _monitor;
+    private Rect _monitorLocalBounds;
 
     public PresentationOverlayWindow()
     {
@@ -35,6 +36,8 @@ public partial class PresentationOverlayWindow : Window
         User32.SetWindowPos(_hwnd, User32.HWND_TOPMOST,
             monitor.Bounds.Left, monitor.Bounds.Top, monitor.Bounds.Width, monitor.Bounds.Height,
             User32.SWP_NOACTIVATE | User32.SWP_SHOWWINDOW);
+        SyncLogicalSize(monitor.Bounds.Width, monitor.Bounds.Height);
+        UpdateMonitorLocalBounds();
     }
 
     public void SetAnnotationDocument(AnnotationDocument document)
@@ -73,7 +76,7 @@ public partial class PresentationOverlayWindow : Window
         if (spotlightVisible)
         {
             var geometry = new GeometryGroup { FillRule = FillRule.EvenOdd };
-            geometry.Children.Add(new RectangleGeometry(new Rect(0, 0, ActualWidth, ActualHeight)));
+            geometry.Children.Add(new RectangleGeometry(_monitorLocalBounds));
             geometry.Children.Add(new EllipseGeometry(center, dipRadius, dipRadius));
             SpotlightDimmer.Data = geometry;
             SpotlightDimmer.Visibility = Visibility.Visible;
@@ -106,5 +109,23 @@ public partial class PresentationOverlayWindow : Window
     {
         SpotlightDimmer.Visibility = Visibility.Collapsed;
         MagnifierFrame.Visibility = Visibility.Collapsed;
+    }
+
+    private void SyncLogicalSize(int pixelWidth, int pixelHeight)
+    {
+        uint dpi = User32.GetDpiForWindow(_hwnd);
+        double scale = dpi > 0 ? 96.0 / dpi : 1.0;
+        Width = pixelWidth * scale;
+        Height = pixelHeight * scale;
+    }
+
+    private void UpdateMonitorLocalBounds()
+    {
+        if (_monitor == null) return;
+        var topLeft = PointFromScreen(new System.Windows.Point(
+            _monitor.Bounds.Left, _monitor.Bounds.Top));
+        var bottomRight = PointFromScreen(new System.Windows.Point(
+            _monitor.Bounds.Right, _monitor.Bounds.Bottom));
+        _monitorLocalBounds = new Rect(topLeft, bottomRight);
     }
 }

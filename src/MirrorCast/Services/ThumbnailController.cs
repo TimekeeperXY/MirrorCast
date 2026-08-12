@@ -334,18 +334,14 @@ public class ThumbnailController
         var props = new DWM_THUMBNAIL_PROPERTIES
         {
             dwFlags = DwmApi.DWM_TNP_VISIBLE | DwmApi.DWM_TNP_OPACITY
-                    | DwmApi.DWM_TNP_RECTDESTINATION | DwmApi.DWM_TNP_SOURCECLIENTAREAONLY,
+                    | DwmApi.DWM_TNP_RECTDESTINATION | DwmApi.DWM_TNP_RECTSOURCE
+                    | DwmApi.DWM_TNP_SOURCECLIENTAREAONLY,
             opacity = 255,
             fVisible = true,
             fSourceClientAreaOnly = _options.ClientAreaOnly,
-            rcDestination = destRect
+            rcDestination = destRect,
+            rcSource = _lastSourceCrop
         };
-
-        if (_screenZoomEnabled)
-        {
-            props.dwFlags |= DwmApi.DWM_TNP_RECTSOURCE;
-            props.rcSource = _lastSourceCrop;
-        }
 
         DwmApi.DwmUpdateThumbnailProperties(_thumbnail, ref props);
     }
