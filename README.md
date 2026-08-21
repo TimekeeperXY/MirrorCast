@@ -5,12 +5,13 @@
 **把主屏上的单个窗口实时镜像到副屏，全屏展示而不暴露整个桌面。**
 
 [![Windows](https://img.shields.io/badge/Windows-10%201809%2B-0078D4?logo=windows)](https://github.com/TimekeeperXY/MirrorCast/releases)
-[![macOS](https://img.shields.io/badge/macOS-13%2B-000000?logo=apple)](https://github.com/TimekeeperXY/MirrorCast/releases/tag/v1.2.0)
+[![macOS](https://img.shields.io/badge/macOS-13%2B-000000?logo=apple)](https://github.com/TimekeeperXY/MirrorCast/releases/tag/v1.4.0)
 [![Release](https://img.shields.io/github/v/release/TimekeeperXY/MirrorCast)](https://github.com/TimekeeperXY/MirrorCast/releases)
 [![License](https://img.shields.io/badge/license-MIT-2ea44f)](LICENSE)
 
-[下载 Windows 版](https://github.com/TimekeeperXY/MirrorCast/releases/download/v1.3.0/MirrorCast.exe) ·
-[下载 macOS DMG](https://github.com/TimekeeperXY/MirrorCast/releases/download/v1.2.0/MirrorCast-v1.2.0-macOS-arm64.dmg) ·
+[下载 Windows x64](https://github.com/TimekeeperXY/MirrorCast/releases/download/v1.4.0/MirrorCast-v1.4.0-windows-x64.zip) ·
+[下载 macOS Apple Silicon](https://github.com/TimekeeperXY/MirrorCast/releases/download/v1.4.0/MirrorCast-v1.4.0-macOS-arm64.dmg) ·
+[下载 macOS Intel](https://github.com/TimekeeperXY/MirrorCast/releases/download/v1.4.0/MirrorCast-v1.4.0-macOS-x86_64.dmg) ·
 [查看全部版本](https://github.com/TimekeeperXY/MirrorCast/releases)
 
 </div>
@@ -62,17 +63,17 @@ MirrorCast 会把选中的窗口留在主屏原位，同时将它实时显示在
 
 ### Windows
 
-1. 下载 [MirrorCast v1.3.0 Windows EXE](https://github.com/TimekeeperXY/MirrorCast/releases/download/v1.3.0/MirrorCast.exe)。
-2. 双击运行，无需安装 .NET 或其他运行库。
+1. 下载 [MirrorCast v1.4.0 Windows x64 ZIP](https://github.com/TimekeeperXY/MirrorCast/releases/download/v1.4.0/MirrorCast-v1.4.0-windows-x64.zip) 并完整解压。
+2. 双击解压目录中的 `MirrorCast.exe`，无需安装 .NET、ADB 或 scrcpy。
 3. 如果 Windows SmartScreen 显示“已保护你的电脑”，点击“更多信息”后选择“仍要运行”。
 
-MirrorCast 是便携应用。退出程序后删除 `MirrorCast.exe` 即可卸载。
+MirrorCast 是便携应用。退出程序后删除整个解压目录即可卸载。请勿单独移动 `MirrorCast.exe`，安卓投屏需要同目录中的 `Resources` 组件。
 
 ### macOS
 
-当前 v1.2.0 DMG 支持 Apple Silicon Mac，包括 M1、M2、M3、M4 及后续芯片。Intel 版已在源码和自动构建中支持，将从后续版本开始提供独立 DMG。
+v1.4.0 同时提供 Apple Silicon 与 Intel DMG。M1、M2、M3、M4 及后续 Apple Silicon 芯片请选择 `arm64`，Intel Mac 请选择 `x86_64`。
 
-1. 下载 [MirrorCast v1.2.0 macOS DMG](https://github.com/TimekeeperXY/MirrorCast/releases/download/v1.2.0/MirrorCast-v1.2.0-macOS-arm64.dmg)。
+1. 从 [MirrorCast v1.4.0 Release](https://github.com/TimekeeperXY/MirrorCast/releases/tag/v1.4.0) 下载与你的 Mac 架构对应的 DMG。
 2. 双击 DMG，将 `MirrorCast.app` 拖到 `Applications`。
 3. 打开 Finder 的“应用程序”，按住 `Control` 单击 MirrorCast，选择“打开”。
 4. 在确认窗口中再次点击“打开”。
@@ -162,7 +163,7 @@ Mac 键盘若将功能键用于亮度或音量控制，需要按住 `Fn` 再按�
 
 ### macOS
 
-- v1.2.0 官方 DMG 仅提供 Apple Silicon arm64 版本；Intel x86_64 支持将在后续版本发布。
+- Apple Silicon 与 Intel 使用不同 DMG，请下载与芯片架构对应的文件。
 - 首次运行必须授予屏幕录制权限，并在授权后重启应用。
 - 因未使用 Apple Developer ID，不同版本更新后可能需要重新授权。
 

@@ -10,7 +10,7 @@ MirrorCast 要求 macOS 13 或更高版本。下载时请选择与电脑匹配�
 - Intel 芯片：`macOS-x86_64.dmg`
 - Universal 2：`macOS-universal.dmg`，同时支持上述两种芯片
 
-v1.2.0 正式版目前仅提供 Apple Silicon 安装包，Intel 安装包将从后续版本开始提供。
+v1.4.0 正式版同时提供 Apple Silicon arm64 与 Intel x86_64 安装包，请选择与 Mac 芯片架构对应的 DMG。
 
 ## 安装
 
