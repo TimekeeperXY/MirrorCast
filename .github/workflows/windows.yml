@@ -1,0 +1,47 @@
+name: Windows
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "src/**"
+      - "scripts/package-windows.ps1"
+      - ".github/workflows/windows.yml"
+  pull_request:
+    paths:
+      - "src/**"
+      - "scripts/package-windows.ps1"
+      - ".github/workflows/windows.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Build complete x64 package
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Build and package
+        shell: pwsh
+        run: ./scripts/package-windows.ps1
+
+      - name: Upload Windows package
+        uses: actions/upload-artifact@v4
+        with:
+          name: MirrorCast-windows-x64
+          path: |
+            dist/MirrorCast-windows-x64.zip
+            dist/MirrorCast-windows-x64.zip.sha256
+          if-no-files-found: error

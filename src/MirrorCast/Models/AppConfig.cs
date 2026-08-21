@@ -22,6 +22,12 @@ public class AppConfig
     public string MagnifierHotkey { get; set; } = "Ctrl+Alt+Shift+L";
     public string SpotlightHotkey { get; set; } = "Ctrl+Alt+Shift+P";
     public string AnnotationHotkey { get; set; } = "Ctrl+Alt+Shift+A";
+    public string AndroidAddress { get; set; } = string.Empty;
+    public int AndroidPort { get; set; } = 5555;
+    public int AndroidMaxFps { get; set; } = 60;
+    public bool AndroidControl { get; set; } = true;
+    public bool AndroidAudio { get; set; } = true;
+    public bool AndroidTurnScreenOff { get; set; }
     public List<RecentWindowEntry> RecentWindows { get; set; } = new();
 }
 

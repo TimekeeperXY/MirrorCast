@@ -41,6 +41,10 @@ jobs:
         run: |
           lipo -archs .build/bundle/MirrorCast.app/Contents/MacOS/MirrorCast
           lipo .build/bundle/MirrorCast.app/Contents/MacOS/MirrorCast -verify_arch x86_64
+          TOOLS=.build/bundle/MirrorCast.app/Contents/Resources/android-tools
+          "$TOOLS/macos-aarch64/platform-tools/adb" version
+          "$TOOLS/macos-x86_64/scrcpy/scrcpy" --version
+          test -f "$TOOLS/macos-x86_64/scrcpy/scrcpy-server"
 
       - name: Upload Intel DMG
         uses: actions/upload-artifact@v4

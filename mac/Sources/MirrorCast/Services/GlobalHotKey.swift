@@ -24,95 +24,132 @@ struct HotKeyCombination: Equatable {
 
 @MainActor
 final class GlobalHotKey {
-    nonisolated(unsafe) private static var action: (() -> Void)?
+    private static let signature = OSType(
+        UInt32(ascii: "M") << 24
+            | UInt32(ascii: "C") << 16
+            | UInt32(ascii: "A") << 8
+            | UInt32(ascii: "S"))
 
-    private var hotKey: EventHotKeyRef?
+    nonisolated(unsafe) private static var actions: [UInt32: () -> Void] = [:]
+    nonisolated(unsafe) private static var nextID: UInt32 = 1
+
+    private var hotKeys: [String: EventHotKeyRef] = [:]
+    private var ids: [String: UInt32] = [:]
+    private var combinations: [String: HotKeyCombination] = [:]
+    private var handlers: [String: () -> Void] = [:]
     private var eventHandler: EventHandlerRef?
-    private var currentCombination: HotKeyCombination?
+
+    init() {
+        installHandler()
+    }
 
     @discardableResult
     func register(_ combination: HotKeyCombination,
                   action: @escaping () -> Void) -> Bool {
-        unregister()
-        Self.action = action
+        register(key: "primary", combination: combination, action: action)
+    }
 
-        var eventType = EventTypeSpec(
-            eventClass: OSType(kEventClassKeyboard),
-            eventKind: UInt32(kEventHotKeyPressed))
+    @discardableResult
+    func register(key: String,
+                  combination: HotKeyCombination,
+                  action: @escaping () -> Void) -> Bool {
+        unregister(key: key)
+        installHandler()
 
-        let handlerStatus = InstallEventHandler(
-            GetApplicationEventTarget(),
-            { _, _, _ in
-                DispatchQueue.main.async {
-                    GlobalHotKey.action?()
-                }
-                return noErr
-            },
-            1,
-            &eventType,
-            nil,
-            &eventHandler)
-        guard handlerStatus == noErr else {
-            Self.action = nil
-            return false
-        }
-
-        let signature = OSType(
-            UInt32(ascii: "M") << 24
-                | UInt32(ascii: "C") << 16
-                | UInt32(ascii: "A") << 8
-                | UInt32(ascii: "S"))
-        let identifier = EventHotKeyID(signature: signature, id: 1)
-
-        let hotKeyStatus = RegisterEventHotKey(
+        let id = Self.nextID
+        Self.nextID += 1
+        let identifier = EventHotKeyID(signature: Self.signature, id: id)
+        var hotKey: EventHotKeyRef?
+        let status = RegisterEventHotKey(
             combination.keyCode,
             combination.modifiers,
             identifier,
             GetApplicationEventTarget(),
             0,
             &hotKey)
-        guard hotKeyStatus == noErr else {
-            unregister()
-            return false
-        }
+        guard status == noErr, let hotKey else { return false }
 
-        currentCombination = combination
+        hotKeys[key] = hotKey
+        ids[key] = id
+        combinations[key] = combination
+        handlers[key] = action
+        Self.actions[id] = action
         return true
     }
 
     func replace(with combination: HotKeyCombination) -> Bool {
-        guard let action = Self.action,
-              let previousCombination = currentCombination
+        guard let action = handlers["primary"],
+              let previous = combinations["primary"]
         else { return false }
 
-        if register(combination, action: action) {
+        if register(key: "primary", combination: combination, action: action) {
             return true
         }
-
-        _ = register(previousCombination, action: action)
+        _ = register(key: "primary", combination: previous, action: action)
         return false
     }
 
-    func unregister() {
-        if let hotKey {
+    func unregister(key: String) {
+        if let hotKey = hotKeys.removeValue(forKey: key) {
             UnregisterEventHotKey(hotKey)
-            self.hotKey = nil
         }
+        if let id = ids.removeValue(forKey: key) {
+            Self.actions.removeValue(forKey: id)
+        }
+        combinations.removeValue(forKey: key)
+        handlers.removeValue(forKey: key)
+    }
+
+    func unregisterPresentationKeys() {
+        ["f1", "f2", "f3", "f4", "escape"].forEach(unregister(key:))
+    }
+
+    func unregister() {
+        for hotKey in hotKeys.values { UnregisterEventHotKey(hotKey) }
+        for id in ids.values { Self.actions.removeValue(forKey: id) }
+        hotKeys.removeAll()
+        ids.removeAll()
+        combinations.removeAll()
+        handlers.removeAll()
         if let eventHandler {
             RemoveEventHandler(eventHandler)
             self.eventHandler = nil
         }
-        currentCombination = nil
-        Self.action = nil
+    }
+
+    private func installHandler() {
+        guard eventHandler == nil else { return }
+        var eventType = EventTypeSpec(
+            eventClass: OSType(kEventClassKeyboard),
+            eventKind: UInt32(kEventHotKeyPressed))
+        InstallEventHandler(
+            GetApplicationEventTarget(),
+            { _, event, _ in
+                guard let event else { return OSStatus(eventNotHandledErr) }
+                var identifier = EventHotKeyID()
+                let status = GetEventParameter(
+                    event,
+                    EventParamName(kEventParamDirectObject),
+                    EventParamType(typeEventHotKeyID),
+                    nil,
+                    MemoryLayout<EventHotKeyID>.size,
+                    nil,
+                    &identifier)
+                guard status == noErr, identifier.signature == GlobalHotKey.signature,
+                      let action = GlobalHotKey.actions[identifier.id]
+                else { return OSStatus(eventNotHandledErr) }
+                DispatchQueue.main.async { action() }
+                return noErr
+            },
+            1,
+            &eventType,
+            nil,
+            &eventHandler)
     }
 
     deinit {
-        if let hotKey {
-            UnregisterEventHotKey(hotKey)
-        }
-        if let eventHandler {
-            RemoveEventHandler(eventHandler)
-        }
+        for hotKey in hotKeys.values { UnregisterEventHotKey(hotKey) }
+        if let eventHandler { RemoveEventHandler(eventHandler) }
     }
 }
 

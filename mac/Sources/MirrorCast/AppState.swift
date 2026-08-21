@@ -20,6 +20,10 @@ struct ScreenItem: Identifiable, Hashable {
 @MainActor
 final class AppState: ObservableObject {
 
+    private enum PresentationFeature {
+        case screenZoom, magnifier, spotlight, annotation
+    }
+
     @Published private(set) var windows: [WindowItem] = []
     @Published private(set) var screens: [ScreenItem] = []
     @Published var selectedWindowID: CGWindowID?
@@ -45,8 +49,35 @@ final class AppState: ObservableObject {
     @Published var showsPermissionOnboarding = false
     @Published var walkthroughStep: WalkthroughStep?
     @Published private(set) var hotKey = HotKeyCombination.defaultValue
+    @Published var presentationKeyMode = true {
+        didSet {
+            preferences.presentationKeyMode = presentationKeyMode
+            onPresentationKeyModeChange?()
+        }
+    }
+    @Published var presentationZoomFactor = 2.0 {
+        didSet { preferences.presentationZoomFactor = presentationZoomFactor }
+    }
+    @Published var pointerEffectSize = 240.0 {
+        didSet { preferences.pointerEffectSize = pointerEffectSize }
+    }
+    @Published private(set) var isScreenZoomActive = false
+    @Published private(set) var isMagnifierActive = false
+    @Published private(set) var isSpotlightActive = false
+    @Published private(set) var isAnnotationActive = false
+    @Published private(set) var androidDevices: [AndroidDeviceInfo] = []
+    @Published var selectedAndroidSerial: String?
+    @Published var androidAddress = "" { didSet { preferences.androidAddress = androidAddress } }
+    @Published var androidPort = 5555 { didSet { preferences.androidPort = androidPort } }
+    @Published var androidMaxFPS = 60 { didSet { preferences.androidMaxFPS = androidMaxFPS } }
+    @Published var androidControl = true { didSet { preferences.androidControl = androidControl } }
+    @Published var androidAudio = true { didSet { preferences.androidAudio = androidAudio } }
+    @Published var androidTurnScreenOff = false { didSet { preferences.androidTurnScreenOff = androidTurnScreenOff } }
+    @Published private(set) var isAndroidBusy = false
 
     var onHotKeyChangeRequested: ((HotKeyCombination) -> Bool)?
+    var onMirroringStateChange: ((Bool) -> Void)?
+    var onPresentationKeyModeChange: (() -> Void)?
 
     /// SwiftUI only ever sees `WindowItem`; the live SCWindow objects stay here because
     /// the capture filter needs the real thing.
@@ -55,18 +86,41 @@ final class AppState: ObservableObject {
     private let capture = CaptureEngine()
     private let mirrorWindow = MirrorWindowController()
     private let preferences = PreferencesStore()
+    private let annotationDocument = AnnotationDocument()
+    private let androidMirror = AndroidMirrorService()
     private var mirrorMonitorTask: Task<Void, Never>?
+    private var pointerMonitorTask: Task<Void, Never>?
     private var activeWindowID: CGWindowID?
     private var isSwitchingSource = false
+    private var featureOrder: [PresentationFeature] = []
+    private lazy var annotationOverlay = AnnotationOverlayController(
+        document: annotationDocument,
+        onExit: { [weak self] in self?.toggleAnnotations() })
 
     var canStart: Bool {
         hasPermission && selectedWindowID != nil && selectedScreenID != nil && screens.count > 1
     }
 
+    var canStartAndroid: Bool {
+        hasPermission && selectedScreenID != nil && screens.count > 1 && !isAndroidBusy
+            && (selectedAndroidSerial != nil || !androidAddress.trimmingCharacters(in: .whitespaces).isEmpty)
+    }
+
+    var isAndroidAvailable: Bool { androidMirror.isAvailable }
+
     init() {
         showsCursor = preferences.showsCursor
         scaleMode = preferences.scaleMode
         hotKey = preferences.hotKey
+        presentationKeyMode = preferences.presentationKeyMode
+        presentationZoomFactor = preferences.presentationZoomFactor
+        pointerEffectSize = preferences.pointerEffectSize
+        androidAddress = preferences.androidAddress
+        androidPort = preferences.androidPort
+        androidMaxFPS = preferences.androidMaxFPS
+        androidControl = preferences.androidControl
+        androidAudio = preferences.androidAudio
+        androidTurnScreenOff = preferences.androidTurnScreenOff
         hasPermission = PermissionService.hasScreenRecordingAccess()
         showsPermissionOnboarding = !hasPermission
         walkthroughStep = hasPermission && !preferences.completedWalkthrough ? .sourceWindow : nil
@@ -83,6 +137,10 @@ final class AppState: ObservableObject {
             } else {
                 self.status = "镜像已停止"
             }
+        }
+        annotationDocument.onChange = { [weak self] in
+            guard let self else { return }
+            self.mirrorWindow.updateAnnotations(self.annotationDocument.items)
         }
     }
 
@@ -195,6 +253,62 @@ final class AppState: ObservableObject {
         return (screen.deviceDescription[key] as? NSNumber)?.uint32Value
     }
 
+    func refreshAndroidDevices() async {
+        guard !isMirroring, !isAndroidBusy else { return }
+        isAndroidBusy = true
+        status = isAndroidAvailable ? "正在查找 USB 和无线 ADB 设备…" : "投屏组件不可用，请安装完整版"
+        defer { isAndroidBusy = false }
+        guard isAndroidAvailable else { return }
+        do {
+            let devices = try await androidMirror.discoverDevices()
+            androidDevices = devices
+            if !devices.contains(where: { $0.serial == selectedAndroidSerial }) {
+                selectedAndroidSerial = devices.first?.serial
+            }
+            status = devices.isEmpty ? "未发现安卓设备，可连接 USB 或填写无线调试地址" : "已发现 \(devices.count) 台安卓设备"
+        } catch {
+            status = error.localizedDescription
+        }
+    }
+
+    func startAndroidMirroring() async {
+        guard canStartAndroid else { return }
+        isAndroidBusy = true
+        status = "正在启动安卓画面…"
+        defer { isAndroidBusy = false }
+        let manualAddress = androidAddress.trimmingCharacters(in: .whitespaces)
+        let options = AndroidMirrorOptions(
+            serial: manualAddress.isEmpty ? selectedAndroidSerial : nil,
+            address: manualAddress.isEmpty ? nil : manualAddress,
+            port: UInt16(clamping: androidPort),
+            control: androidControl,
+            audio: androidAudio,
+            turnScreenOff: androidTurnScreenOff,
+            maxFPS: androidMaxFPS)
+        do {
+            try await androidMirror.start(options)
+            let deadline = Date().addingTimeInterval(15)
+            while Date() < deadline {
+                try androidMirror.ensureRunning()
+                await refreshSources()
+                if let item = windows.first(where: { $0.title == AndroidMirrorService.windowTitle }) {
+                    selectedWindowID = item.id
+                    await startMirroring()
+                    if isMirroring {
+                        status = "安卓画面已投到副屏，可使用 F1-F4 演示功能"
+                        return
+                    }
+                }
+                try await Task.sleep(nanoseconds: 150_000_000)
+            }
+            throw NSError(domain: "MirrorCast.Android", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "等待安卓投屏窗口超时，请检查设备连接和授权状态"])
+        } catch {
+            androidMirror.stop()
+            status = "安卓投屏启动失败：\(error.localizedDescription)"
+        }
+    }
+
     // MARK: - Mirroring
 
     func startMirroring() async {
@@ -216,9 +330,12 @@ final class AppState: ObservableObject {
                                     showsCursor: showsCursor,
                                     scale: sourceScale)
             isMirroring = true
+            resetPresentationFeatures()
             activeWindowID = windowID
             rememberSource(windowID)
             startMirrorMonitor(windowID: windowID, targetScreenID: screenID)
+            startPointerMonitor()
+            onMirroringStateChange?(true)
             let title = windows.first(where: { $0.id == windowID })?.title ?? "所选窗口"
             status = "正在镜像：\(title)"
         } catch {
@@ -258,6 +375,12 @@ final class AppState: ObservableObject {
             status = "正在切换到：\(title)"
 
             do {
+                if isAnnotationActive {
+                    annotationOverlay.close()
+                    isAnnotationActive = false
+                    track(.annotation, active: false)
+                    annotationDocument.reset()
+                }
                 try await capture.start(
                     window: window,
                     showsCursor: showsCursor,
@@ -278,9 +401,16 @@ final class AppState: ObservableObject {
     private func finishMirroring() {
         mirrorMonitorTask?.cancel()
         mirrorMonitorTask = nil
+        pointerMonitorTask?.cancel()
+        pointerMonitorTask = nil
+        annotationOverlay.close()
+        resetPresentationFeatures()
         activeWindowID = nil
         mirrorWindow.close()
+        androidMirror.stop()
+        let wasMirroring = isMirroring
         isMirroring = false
+        if wasMirroring { onMirroringStateChange?(false) }
     }
 
     func toggleMirroring() async {
@@ -329,6 +459,129 @@ final class AppState: ObservableObject {
 
     func restoreDefaultHotKey() {
         updateHotKey(.defaultValue)
+    }
+
+    func toggleScreenZoom() {
+        guard isMirroring else { return }
+        isScreenZoomActive.toggle()
+        if isScreenZoomActive {
+            isMagnifierActive = false
+            track(.magnifier, active: false)
+        }
+        track(.screenZoom, active: isScreenZoomActive)
+        updatePresentation()
+    }
+
+    func toggleMagnifier() {
+        guard isMirroring else { return }
+        isMagnifierActive.toggle()
+        if isMagnifierActive {
+            isScreenZoomActive = false
+            track(.screenZoom, active: false)
+        }
+        track(.magnifier, active: isMagnifierActive)
+        updatePresentation()
+    }
+
+    func toggleSpotlight() {
+        guard isMirroring else { return }
+        isSpotlightActive.toggle()
+        track(.spotlight, active: isSpotlightActive)
+        updatePresentation()
+    }
+
+    func toggleAnnotations() {
+        guard isMirroring else { return }
+        isAnnotationActive.toggle()
+        if isAnnotationActive, let frame = activeSourceFrame() {
+            annotationOverlay.show(sourceFrame: frame)
+        } else {
+            annotationOverlay.close()
+        }
+        track(.annotation, active: isAnnotationActive)
+    }
+
+    func exitPresentationModeOrStop() async {
+        guard isMirroring else { return }
+        reconcileFeatureOrder()
+        guard let feature = featureOrder.last else {
+            await stopMirroring()
+            return
+        }
+        switch feature {
+        case .screenZoom: toggleScreenZoom()
+        case .magnifier: toggleMagnifier()
+        case .spotlight: toggleSpotlight()
+        case .annotation: toggleAnnotations()
+        }
+    }
+
+    private func track(_ feature: PresentationFeature, active: Bool) {
+        featureOrder.removeAll { $0 == feature }
+        if active { featureOrder.append(feature) }
+    }
+
+    private func reconcileFeatureOrder() {
+        featureOrder.removeAll { feature in
+            switch feature {
+            case .screenZoom: !isScreenZoomActive
+            case .magnifier: !isMagnifierActive
+            case .spotlight: !isSpotlightActive
+            case .annotation: !isAnnotationActive
+            }
+        }
+    }
+
+    private func resetPresentationFeatures() {
+        isScreenZoomActive = false
+        isMagnifierActive = false
+        isSpotlightActive = false
+        isAnnotationActive = false
+        featureOrder.removeAll()
+        annotationDocument.reset()
+        updatePresentation(pointer: CGPoint(x: 0.5, y: 0.5))
+    }
+
+    private func startPointerMonitor() {
+        pointerMonitorTask?.cancel()
+        pointerMonitorTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 33_000_000)
+                guard let self, self.isMirroring, !Task.isCancelled else { return }
+                self.updatePresentation()
+                if self.isAnnotationActive, let frame = self.activeSourceFrame() {
+                    self.annotationOverlay.update(sourceFrame: frame)
+                }
+            }
+        }
+    }
+
+    private func updatePresentation(pointer: CGPoint? = nil) {
+        let normalized = pointer ?? normalizedPointerInSource()
+        mirrorWindow.updatePresentation(
+            pointer: normalized,
+            zoomFactor: isScreenZoomActive ? presentationZoomFactor : 1,
+            magnifierVisible: isMagnifierActive,
+            spotlightVisible: isSpotlightActive,
+            effectSize: pointerEffectSize)
+    }
+
+    private func activeSourceFrame() -> CGRect? {
+        guard let activeWindowID else { return nil }
+        return scWindows[activeWindowID]?.frame
+    }
+
+    private func normalizedPointerInSource() -> CGPoint {
+        guard let frame = activeSourceFrame(), frame.width > 0, frame.height > 0 else {
+            return CGPoint(x: 0.5, y: 0.5)
+        }
+        guard let capturePoint = CGEvent(source: nil)?.location else {
+            return CGPoint(x: 0.5, y: 0.5)
+        }
+        let normalizedX = (capturePoint.x - frame.minX) / frame.width
+        let normalizedYFromTop = (capturePoint.y - frame.minY) / frame.height
+        return CGPoint(x: min(max(normalizedX, 0), 1),
+                       y: min(max(1 - normalizedYFromTop, 0), 1))
     }
 
     func acceptDefaultHotKeyFallback() {

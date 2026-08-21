@@ -21,6 +21,7 @@ public class MainViewModel : ViewModelBase
 
     private readonly ConfigService _configService = new();
     private readonly ThumbnailController _controller = new();
+    private readonly AndroidMirrorService _androidMirror = new();
     private readonly DispatcherTimer _refreshTimer;
     private readonly AppConfig _config;
 
@@ -29,9 +30,58 @@ public class MainViewModel : ViewModelBase
     public ObservableCollection<WindowInfo> Windows { get; } = new();
     public ObservableCollection<MonitorInfo> Monitors { get; } = new();
     public ObservableCollection<ScaleMode> ScaleModes { get; } = new(Enum.GetValues<ScaleMode>());
+    public ObservableCollection<AndroidDeviceInfo> AndroidDevices { get; } = new();
+    public ObservableCollection<int> AndroidFrameRates { get; } = new([30, 60, 90, 120, 165]);
 
     public ICollectionView WindowsView { get; }
     public ICollectionView SwitchWindowsView { get; }
+
+    private AndroidDeviceInfo? _selectedAndroidDevice;
+    public AndroidDeviceInfo? SelectedAndroidDevice
+    {
+        get => _selectedAndroidDevice;
+        set { if (SetField(ref _selectedAndroidDevice, value)) StartAndroidCommand.RaiseCanExecuteChanged(); }
+    }
+
+    private string _androidAddress = string.Empty;
+    public string AndroidAddress
+    {
+        get => _androidAddress;
+        set { if (SetField(ref _androidAddress, value)) StartAndroidCommand.RaiseCanExecuteChanged(); }
+    }
+
+    private int _androidPort = 5555;
+    public int AndroidPort { get => _androidPort; set => SetField(ref _androidPort, Math.Clamp(value, 1, 65535)); }
+
+    private int _androidMaxFps = 60;
+    public int AndroidMaxFps { get => _androidMaxFps; set => SetField(ref _androidMaxFps, value); }
+
+    private bool _androidControl = true;
+    public bool AndroidControl { get => _androidControl; set => SetField(ref _androidControl, value); }
+
+    private bool _androidAudio = true;
+    public bool AndroidAudio { get => _androidAudio; set => SetField(ref _androidAudio, value); }
+
+    private bool _androidTurnScreenOff;
+    public bool AndroidTurnScreenOff { get => _androidTurnScreenOff; set => SetField(ref _androidTurnScreenOff, value); }
+
+    private bool _isAndroidBusy;
+    public bool IsAndroidBusy
+    {
+        get => _isAndroidBusy;
+        private set
+        {
+            if (!SetField(ref _isAndroidBusy, value)) return;
+            OnPropertyChanged(nameof(AndroidActionText));
+            RefreshAndroidCommand.RaiseCanExecuteChanged();
+            StartAndroidCommand.RaiseCanExecuteChanged();
+        }
+    }
+
+    private string _androidStatus = string.Empty;
+    public string AndroidStatus { get => _androidStatus; private set => SetField(ref _androidStatus, value); }
+    public bool IsAndroidAvailable => _androidMirror.IsAvailable;
+    public string AndroidActionText => IsAndroidBusy ? "正在连接…" : "投到副屏";
 
     private string _searchText = string.Empty;
     public string SearchText
@@ -393,6 +443,8 @@ public class MainViewModel : ViewModelBase
     public RelayCommand ToggleMagnifierCommand { get; }
     public RelayCommand ToggleSpotlightCommand { get; }
     public RelayCommand ToggleAnnotationCommand { get; }
+    public RelayCommand RefreshAndroidCommand { get; }
+    public RelayCommand StartAndroidCommand { get; }
 
     public event Action? ShowMainWindowRequested;
     public event Action<string>? Notify;
@@ -420,6 +472,10 @@ public class MainViewModel : ViewModelBase
         ToggleMagnifierCommand = new RelayCommand(ToggleMagnifier, () => IsMirroring);
         ToggleSpotlightCommand = new RelayCommand(ToggleSpotlight, () => IsMirroring);
         ToggleAnnotationCommand = new RelayCommand(ToggleAnnotations, () => IsMirroring);
+        RefreshAndroidCommand = new RelayCommand(async () => await RefreshAndroidDevicesAsync(), () => !IsAndroidBusy && !IsMirroring);
+        StartAndroidCommand = new RelayCommand(async () => await StartAndroidMirroringAsync(),
+            () => !IsAndroidBusy && !IsMirroring && SelectedMonitor != null && Monitors.Count > 1
+                && (SelectedAndroidDevice != null || !string.IsNullOrWhiteSpace(AndroidAddress)));
 
         _controller.SourceClosed += OnSourceClosed;
         _controller.TargetMonitorLost += OnTargetMonitorLost;
@@ -450,6 +506,12 @@ public class MainViewModel : ViewModelBase
         if (!string.IsNullOrWhiteSpace(_config.AnnotationHotkey))
             AnnotationHotkey = _config.AnnotationHotkey;
         _startWithWindows = StartupService.IsEnabled();
+        AndroidAddress = _config.AndroidAddress;
+        AndroidPort = _config.AndroidPort;
+        AndroidMaxFps = _config.AndroidMaxFps;
+        AndroidControl = _config.AndroidControl;
+        AndroidAudio = _config.AndroidAudio;
+        AndroidTurnScreenOff = _config.AndroidTurnScreenOff;
 
         _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
         _refreshTimer.Tick += (_, _) => { if (!IsMirroring) RefreshWindows(); };
@@ -504,6 +566,7 @@ public class MainViewModel : ViewModelBase
         SelectedMonitor = Monitors.FirstOrDefault(m => !m.IsPrimary) ?? Monitors.FirstOrDefault();
         CanStart = Monitors.Count > 1;
         StartCommand.RaiseCanExecuteChanged();
+        StartAndroidCommand.RaiseCanExecuteChanged();
     }
 
     private void RestoreLastSelection()
@@ -561,10 +624,88 @@ public class MainViewModel : ViewModelBase
         }
     }
 
+    private async Task RefreshAndroidDevicesAsync()
+    {
+        if (IsMirroring || IsAndroidBusy) return;
+        IsAndroidBusy = true;
+        AndroidStatus = IsAndroidAvailable ? "正在查找 USB 和无线 ADB 设备…" : "投屏组件不可用，请安装完整版。";
+        try
+        {
+            if (!IsAndroidAvailable) return;
+            var selectedSerial = SelectedAndroidDevice?.Serial;
+            var devices = await _androidMirror.DiscoverDevicesAsync();
+            AndroidDevices.Clear();
+            foreach (var device in devices) AndroidDevices.Add(device);
+            SelectedAndroidDevice = AndroidDevices.FirstOrDefault(device => device.Serial == selectedSerial)
+                ?? AndroidDevices.FirstOrDefault();
+            AndroidStatus = devices.Count == 0
+                ? "未发现设备。请连接 USB 并授权，或填写无线调试地址。"
+                : $"已发现 {devices.Count} 台安卓设备";
+        }
+        catch (Exception ex)
+        {
+            AndroidStatus = ex.Message;
+        }
+        finally
+        {
+            IsAndroidBusy = false;
+        }
+    }
+
+    private async Task StartAndroidMirroringAsync()
+    {
+        if (SelectedMonitor == null || IsAndroidBusy || IsMirroring) return;
+        IsAndroidBusy = true;
+        AndroidStatus = "正在启动安卓画面…";
+        try
+        {
+            var useManualAddress = !string.IsNullOrWhiteSpace(AndroidAddress);
+            var options = new AndroidMirrorOptions
+            {
+                Serial = useManualAddress ? null : SelectedAndroidDevice?.Serial,
+                Address = useManualAddress ? AndroidAddress : null,
+                Port = (ushort)AndroidPort,
+                MaxFps = AndroidMaxFps,
+                Control = AndroidControl,
+                Audio = AndroidAudio,
+                TurnScreenOff = AndroidTurnScreenOff
+            };
+            SaveConfig();
+            var hwnd = await _androidMirror.StartAsync(options);
+            RefreshWindows();
+            SelectedWindow = Windows.FirstOrDefault(window => window.Hwnd == hwnd)
+                ?? new WindowInfo
+                {
+                    Hwnd = hwnd,
+                    Title = AndroidMirrorService.WindowTitle,
+                    ProcessName = "scrcpy.exe",
+                    Icon = IconExtractor.GetWindowIcon(hwnd, "scrcpy.exe")
+                };
+            StartMirroring();
+            if (!IsMirroring)
+            {
+                _androidMirror.Stop();
+                return;
+            }
+            AndroidStatus = "安卓画面已投到副屏，可使用 F1-F4 演示功能。";
+        }
+        catch (Exception ex)
+        {
+            _androidMirror.Stop();
+            AndroidStatus = ex.Message;
+            Notify?.Invoke($"安卓投屏启动失败：{ex.Message}");
+        }
+        finally
+        {
+            IsAndroidBusy = false;
+        }
+    }
+
     public void StopMirroring()
     {
         bool wasMirroring = IsMirroring;
         _controller.Stop();
+        _androidMirror.Stop();
         SyncPresentationState();
         _activeFeatureOrder.Clear();
         IsMirroring = false;
@@ -748,6 +889,12 @@ public class MainViewModel : ViewModelBase
         _config.MagnifierHotkey = MagnifierHotkey;
         _config.SpotlightHotkey = SpotlightHotkey;
         _config.AnnotationHotkey = AnnotationHotkey;
+        _config.AndroidAddress = AndroidAddress;
+        _config.AndroidPort = AndroidPort;
+        _config.AndroidMaxFps = AndroidMaxFps;
+        _config.AndroidControl = AndroidControl;
+        _config.AndroidAudio = AndroidAudio;
+        _config.AndroidTurnScreenOff = AndroidTurnScreenOff;
         _config.StartWithWindows = StartWithWindows;
         _configService.Save(_config);
     }

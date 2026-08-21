@@ -17,7 +17,7 @@ struct ControlPanelView: View {
                 controlPanel
             }
         }
-        .frame(minWidth: 420, minHeight: 620)
+        .frame(minWidth: 440, minHeight: 720)
         .task {
             state.refreshPermission()
             await state.refreshSources()
@@ -28,35 +28,39 @@ struct ControlPanelView: View {
     }
 
     private var controlPanel: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            header
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                header
 
-            if !state.hasPermission {
-                permissionBanner
-            } else {
-                windowSection
-                screenSection
-                scaleModePicker
-                HotKeySettingView(
-                    combination: state.hotKey,
-                    onChange: state.updateHotKey,
-                    onRestoreDefault: state.restoreDefaultHotKey)
-                Toggle("在副屏显示鼠标指针", isOn: $state.showsCursor)
-                    .disabled(state.isMirroring)
+                if !state.hasPermission {
+                    permissionBanner
+                } else {
+                    windowSection
+                    androidSection
+                    screenSection
+                    scaleModePicker
+                    HotKeySettingView(
+                        combination: state.hotKey,
+                        onChange: state.updateHotKey,
+                        onRestoreDefault: state.restoreDefaultHotKey)
+                    Toggle("在副屏显示鼠标指针", isOn: $state.showsCursor)
+                        .disabled(state.isMirroring)
+                    presentationSettings
+                }
+
+                Spacer(minLength: 0)
+
+                if !state.status.isEmpty {
+                    Text(state.status)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                actionSection
             }
-
-            Spacer(minLength: 0)
-
-            if !state.status.isEmpty {
-                Text(state.status)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            actionSection
+            .padding(18)
         }
-        .padding(18)
         .overlayPreferenceValue(WalkthroughFramePreferenceKey.self) { anchors in
             GeometryReader { proxy in
                 if let step = state.walkthroughStep {
@@ -129,6 +133,49 @@ struct ControlPanelView: View {
         .walkthroughTarget(.sourceWindow)
     }
 
+    private var androidSection: some View {
+        DisclosureGroup("安卓设备投屏") {
+            VStack(alignment: .leading, spacing: 9) {
+                HStack {
+                    Picker("设备", selection: $state.selectedAndroidSerial) {
+                        Text("选择已授权设备").tag(String?.none)
+                        ForEach(state.androidDevices) { device in
+                            Text(device.displayName).tag(Optional(device.serial))
+                        }
+                    }
+                    .labelsHidden()
+                    Button("刷新设备") { Task { await state.refreshAndroidDevices() } }
+                        .disabled(state.isAndroidBusy || state.isMirroring)
+                }
+
+                HStack {
+                    TextField("无线调试 IP 或主机名（可选）", text: $state.androidAddress)
+                    TextField("端口", value: $state.androidPort, format: .number)
+                        .frame(width: 72)
+                }
+
+                HStack {
+                    Picker("帧率", selection: $state.androidMaxFPS) {
+                        ForEach([30, 60, 90, 120, 165], id: \.self) { value in
+                            Text("\(value) FPS").tag(value)
+                        }
+                    }
+                    Toggle("允许控制", isOn: $state.androidControl)
+                    Toggle("电脑播放声音", isOn: $state.androidAudio)
+                }
+
+                Toggle("投屏后关闭手机显示屏", isOn: $state.androidTurnScreenOff)
+                Button(state.isAndroidBusy ? "正在连接…" : "投到副屏") {
+                    Task { await state.startAndroidMirroring() }
+                }
+                .frame(maxWidth: .infinity)
+                .buttonStyle(.borderedProminent)
+                .disabled(!state.canStartAndroid || state.isMirroring)
+            }
+            .padding(.top, 8)
+        }
+    }
+
     private var screenSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("第二步：选择目标显示器")
@@ -176,8 +223,69 @@ struct ControlPanelView: View {
             .controlSize(.large)
             .buttonStyle(.borderedProminent)
             .disabled(!state.isMirroring && !state.canStart)
+
+            if state.isMirroring {
+                presentationActions
+                    .padding(.top, 8)
+            }
         }
         .walkthroughTarget(.startMirror)
+    }
+
+    private var presentationSettings: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Divider()
+            Text("演示辅助")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Toggle("镜像时启用 F1-F4 演示快捷模式", isOn: $state.presentationKeyMode)
+            HStack {
+                Text("放大倍数")
+                Slider(value: $state.presentationZoomFactor, in: 1.25...5, step: 0.25)
+                Text("\(state.presentationZoomFactor, specifier: "%.2f")x")
+                    .monospacedDigit().frame(width: 48, alignment: .trailing)
+            }
+            HStack {
+                Text("指针范围")
+                Slider(value: $state.pointerEffectSize, in: 120...480, step: 20)
+                Text("\(Int(state.pointerEffectSize)) px")
+                    .monospacedDigit().frame(width: 58, alignment: .trailing)
+            }
+            Text("F1 屏幕放大 · F2 指针放大镜 · F3 指针聚光灯 · F4 屏幕标注 · Esc 逐层退出")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var presentationActions: some View {
+        VStack(spacing: 6) {
+            HStack(spacing: 6) {
+                presentationButton(state.isScreenZoomActive ? "关闭屏幕放大" : "F1 屏幕放大",
+                                   active: state.isScreenZoomActive,
+                                   action: state.toggleScreenZoom)
+                presentationButton(state.isMagnifierActive ? "关闭放大镜" : "F2 指针放大镜",
+                                   active: state.isMagnifierActive,
+                                   action: state.toggleMagnifier)
+            }
+            HStack(spacing: 6) {
+                presentationButton(state.isSpotlightActive ? "关闭聚光灯" : "F3 指针聚光灯",
+                                   active: state.isSpotlightActive,
+                                   action: state.toggleSpotlight)
+                presentationButton(state.isAnnotationActive ? "退出标注" : "F4 屏幕标注",
+                                   active: state.isAnnotationActive,
+                                   action: state.toggleAnnotations)
+            }
+        }
+    }
+
+    private func presentationButton(_ title: String,
+                                    active: Bool,
+                                    action: @escaping () -> Void) -> some View {
+        Button(title, action: action)
+            .frame(maxWidth: .infinity)
+            .buttonStyle(.bordered)
+            .tint(active ? .accentColor : .secondary)
     }
 
     private var scaleModePicker: some View {

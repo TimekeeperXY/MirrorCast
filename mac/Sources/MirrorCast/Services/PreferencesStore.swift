@@ -12,6 +12,15 @@ final class PreferencesStore {
         static let hotKeyCode = "hotKeyCode"
         static let hotKeyModifiers = "hotKeyModifiers"
         static let hotKeyLabel = "hotKeyLabel"
+        static let presentationKeyMode = "presentationKeyMode"
+        static let presentationZoomFactor = "presentationZoomFactor"
+        static let pointerEffectSize = "pointerEffectSize"
+        static let androidAddress = "androidAddress"
+        static let androidPort = "androidPort"
+        static let androidMaxFPS = "androidMaxFPS"
+        static let androidControl = "androidControl"
+        static let androidAudio = "androidAudio"
+        static let androidTurnScreenOff = "androidTurnScreenOff"
     }
 
     private let defaults = UserDefaults.standard
@@ -85,4 +94,36 @@ final class PreferencesStore {
             defaults.set(newValue.keyLabel, forKey: Key.hotKeyLabel)
         }
     }
+
+    var presentationKeyMode: Bool {
+        get {
+            defaults.object(forKey: Key.presentationKeyMode) == nil
+                ? true
+                : defaults.bool(forKey: Key.presentationKeyMode)
+        }
+        set { defaults.set(newValue, forKey: Key.presentationKeyMode) }
+    }
+
+    var presentationZoomFactor: Double {
+        get {
+            let value = defaults.double(forKey: Key.presentationZoomFactor)
+            return value == 0 ? 2 : value
+        }
+        set { defaults.set(newValue, forKey: Key.presentationZoomFactor) }
+    }
+
+    var pointerEffectSize: Double {
+        get {
+            let value = defaults.double(forKey: Key.pointerEffectSize)
+            return value == 0 ? 240 : value
+        }
+        set { defaults.set(newValue, forKey: Key.pointerEffectSize) }
+    }
+
+    var androidAddress: String { get { defaults.string(forKey: Key.androidAddress) ?? "" } set { defaults.set(newValue, forKey: Key.androidAddress) } }
+    var androidPort: Int { get { let value = defaults.integer(forKey: Key.androidPort); return value == 0 ? 5555 : value } set { defaults.set(newValue, forKey: Key.androidPort) } }
+    var androidMaxFPS: Int { get { let value = defaults.integer(forKey: Key.androidMaxFPS); return value == 0 ? 60 : value } set { defaults.set(newValue, forKey: Key.androidMaxFPS) } }
+    var androidControl: Bool { get { defaults.object(forKey: Key.androidControl) == nil ? true : defaults.bool(forKey: Key.androidControl) } set { defaults.set(newValue, forKey: Key.androidControl) } }
+    var androidAudio: Bool { get { defaults.object(forKey: Key.androidAudio) == nil ? true : defaults.bool(forKey: Key.androidAudio) } set { defaults.set(newValue, forKey: Key.androidAudio) } }
+    var androidTurnScreenOff: Bool { get { defaults.bool(forKey: Key.androidTurnScreenOff) } set { defaults.set(newValue, forKey: Key.androidTurnScreenOff) } }
 }
