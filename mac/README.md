@@ -4,7 +4,7 @@ MirrorCast 的 macOS 版本使用 ScreenCaptureKit 捕获单个窗口，通过 I
 
 - 用户安装与权限处理：[macOS 安装指南](INSTALL.md)
 - 项目总览与使用说明：[根 README](../README.md)
-- 最新正式版 DMG：[MirrorCast v1.2.0（Apple Silicon）](https://github.com/TimekeeperXY/MirrorCast/releases/tag/v1.2.0)
+- 最新正式版 DMG：[MirrorCast v1.4.0（Apple Silicon / Intel）](https://github.com/TimekeeperXY/MirrorCast/releases/tag/v1.4.0)
 
 ## 系统要求
 
@@ -136,6 +136,6 @@ macOS 没有与 DWM Thumbnail 对等的公开 API，因此资源占用会高于 
 - App 使用 ad-hoc 签名，未经过 Apple 公证。
 - 首次启动需要用户通过 Finder 右键“打开”或系统设置确认。
 - 更新不同构建后，macOS 可能要求重新授予屏幕录制权限。
-- v1.2.0 官方 DMG 仅发布 arm64；源码和持续集成已经支持 Intel x86_64。
+- v1.4.0 官方 Release 同时提供 Apple Silicon arm64 与 Intel x86_64 DMG。
 
 不要建议用户全局关闭 Gatekeeper。完整、安全的处理方式见 [macOS 安装指南](INSTALL.md)。
